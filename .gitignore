@@ -1,0 +1,21 @@
+# Flutter / Dart generated files
+.dart_tool/
+build/
+.packages
+.flutter-plugins
+.flutter-plugins-dependencies
+windows/flutter/ephemeral/
+
+# IDE and OS files
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Local secrets and runtime state
+.env
+.env.*
+*.pem
+*.key
+secrets/
