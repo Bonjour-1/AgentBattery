@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/provider_config.dart';
 import '../../models/provider_view_state.dart';
 import '../theme/app_theme_tokens.dart';
+import 'glass_surface.dart';
 import 'metric_tile.dart';
 
 class ProviderCard extends StatelessWidget {
@@ -35,20 +36,8 @@ class ProviderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = AppThemeTokens.of(context);
     final balanceAccent = isLowBalance ? tokens.error : accent;
-    return Container(
+    return GlassSurface(
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: tokens.cardGradient,
-        borderRadius: BorderRadius.circular(tokens.cardRadius),
-        border: Border.all(color: tokens.outline),
-        boxShadow: [
-          BoxShadow(
-            color: tokens.shadow.withValues(alpha: .10),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
       child: Column(
         children: [
           LayoutBuilder(

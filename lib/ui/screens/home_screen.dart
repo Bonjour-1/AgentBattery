@@ -10,6 +10,7 @@ import '../../models/provider_usage.dart';
 import '../../state/battery_controller.dart';
 import '../theme/app_theme_tokens.dart';
 import '../window_layout_policy.dart';
+import '../widgets/glass_surface.dart';
 import '../widgets/provider_card.dart';
 import 'provider_management_screen.dart';
 import 'theme_studio_screen.dart';
@@ -201,7 +202,7 @@ Future<void> _showAutoRefreshSettings(
       ),
     ),
   );
-  seconds.dispose();
+  WidgetsBinding.instance.addPostFrameCallback((_) => seconds.dispose());
 }
 
 Future<void> _showManualUsageDialog(
@@ -732,135 +733,146 @@ class _Content extends StatelessWidget {
           mode: DashboardLayoutMode.standard,
           density: DashboardDensity.comfortable,
         );
+    final contentRadius = BorderRadius.vertical(
+      top: Radius.circular(tokens.contentRadius),
+    );
+    final contentGradient = stage && tokens.kind == AppTheme.miku
+        ? const LinearGradient(colors: [Color(0xddedfffe), Color(0xcce0fbf7)])
+        : tokens.contentGradient;
+    final content = ListView(
+      key: dashboard.isCompact
+          ? const Key('custom-dashboard-density-compact')
+          : const Key('custom-dashboard-density-comfortable'),
+      children: [
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final summaries = [
+              _Summary(
+                label: tokens.kind == AppTheme.mita ? '能量小金库' : '余额合计',
+                value: '¥ ${controller.totalBalance.toStringAsFixed(2)}',
+                icon: Icons.account_balance_wallet_rounded,
+              ),
+              _Summary(
+                label: tokens.kind == AppTheme.mita ? '今天的小消耗' : '今日消耗',
+                value: '¥ ${controller.totalDaily.toStringAsFixed(2)}',
+                icon: Icons.bolt_rounded,
+              ),
+              _Summary(
+                label: tokens.kind == AppTheme.mita ? '本月努力值' : '本月消耗',
+                value: '¥ ${controller.totalMonthly.toStringAsFixed(2)}',
+                icon: Icons.calendar_month_rounded,
+              ),
+            ];
+            if (dashboard.isFocus) {
+              return Wrap(
+                key: const Key('custom-dashboard-focus-summary'),
+                spacing: dashboard.isCompact ? 6 : 10,
+                runSpacing: dashboard.isCompact ? 6 : 10,
+                children: summaries
+                    .map(
+                      (item) => SizedBox(
+                        width: constraints.maxWidth < 520
+                            ? double.infinity
+                            : (constraints.maxWidth -
+                                      (dashboard.isCompact ? 6 : 10)) /
+                                  2,
+                        child: item,
+                      ),
+                    )
+                    .toList(),
+              );
+            }
+            if (constraints.maxWidth < 520) {
+              return Column(
+                children: [
+                  for (final item in summaries) ...[
+                    item,
+                    const SizedBox(height: 10),
+                  ],
+                ],
+              );
+            }
+            return Row(
+              children: [
+                for (final item in summaries)
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: item,
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+        SizedBox(height: dashboard.summaryGap),
+        if (controller.visibleProviders.isEmpty)
+          Padding(
+            padding: const EdgeInsets.all(28),
+            child: Center(
+              child: Text(
+                '没有启用的服务商\n请通过“管理服务商”添加或启用。',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: tokens.mutedText),
+              ),
+            ),
+          ),
+        for (final entry in controller.enabledConfigs.indexed) ...[
+          ProviderCard(
+            provider: controller.providers[entry.$2.id]!,
+            accent: Color(entry.$2.colorValue),
+            rechargeUrl: entry.$2.rechargeUrl,
+            lowBalanceThreshold: entry.$2.lowBalanceThreshold,
+            onRecharge: () => _openRechargePage(context, entry.$2),
+            onEditDailyUsage: () => _showManualUsageDialog(
+              context,
+              controller,
+              entry.$2,
+              UsagePeriod.daily,
+              controller.providers[entry.$2.id]!.dailyUsage,
+            ),
+            onEditMonthlyUsage: () => _showManualUsageDialog(
+              context,
+              controller,
+              entry.$2,
+              UsagePeriod.monthly,
+              controller.providers[entry.$2.id]!.monthlyUsage,
+            ),
+          ),
+          SizedBox(height: dashboard.providerGap),
+        ],
+        Text(
+          controller.lastRefresh == null
+              ? '缓存已就绪 · 正在后台同步'
+              : '最近更新 ${controller.lastRefresh!.hour.toString().padLeft(2, '0')}:${controller.lastRefresh!.minute.toString().padLeft(2, '0')} · Key 已安全保存在本地',
+          style: TextStyle(color: tokens.mutedText, fontSize: 12),
+        ),
+      ],
+    );
+    final key = dashboard.isFocus
+        ? const Key('custom-dashboard-focus')
+        : const Key('custom-dashboard-standard');
+    if (tokens.isGlassTheme) {
+      return GlassSurface(
+        key: key,
+        padding: dashboard.contentPadding,
+        gradient: contentGradient,
+        radius: contentRadius,
+        child: content,
+      );
+    }
     return Container(
-      key: dashboard.isFocus
-          ? const Key('custom-dashboard-focus')
-          : const Key('custom-dashboard-standard'),
+      key: key,
       width: double.infinity,
       padding: dashboard.contentPadding,
       decoration: BoxDecoration(
-        gradient: stage && tokens.kind == AppTheme.miku
-            ? const LinearGradient(
-                colors: [Color(0xddedfffe), Color(0xcce0fbf7)],
-              )
-            : tokens.contentGradient,
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(tokens.contentRadius),
-        ),
+        gradient: contentGradient,
+        borderRadius: contentRadius,
         border: stage
             ? Border.all(color: Colors.white.withValues(alpha: .38))
             : null,
       ),
-      child: ListView(
-        key: dashboard.isCompact
-            ? const Key('custom-dashboard-density-compact')
-            : const Key('custom-dashboard-density-comfortable'),
-        children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final summaries = [
-                _Summary(
-                  label: tokens.kind == AppTheme.mita ? '能量小金库' : '余额合计',
-                  value: '¥ ${controller.totalBalance.toStringAsFixed(2)}',
-                  icon: Icons.account_balance_wallet_rounded,
-                ),
-                _Summary(
-                  label: tokens.kind == AppTheme.mita ? '今天的小消耗' : '今日消耗',
-                  value: '¥ ${controller.totalDaily.toStringAsFixed(2)}',
-                  icon: Icons.bolt_rounded,
-                ),
-                _Summary(
-                  label: tokens.kind == AppTheme.mita ? '本月努力值' : '本月消耗',
-                  value: '¥ ${controller.totalMonthly.toStringAsFixed(2)}',
-                  icon: Icons.calendar_month_rounded,
-                ),
-              ];
-              if (dashboard.isFocus) {
-                return Wrap(
-                  key: const Key('custom-dashboard-focus-summary'),
-                  spacing: dashboard.isCompact ? 6 : 10,
-                  runSpacing: dashboard.isCompact ? 6 : 10,
-                  children: summaries
-                      .map(
-                        (item) => SizedBox(
-                          width: constraints.maxWidth < 520
-                              ? double.infinity
-                              : (constraints.maxWidth -
-                                        (dashboard.isCompact ? 6 : 10)) /
-                                    2,
-                          child: item,
-                        ),
-                      )
-                      .toList(),
-                );
-              }
-              if (constraints.maxWidth < 520) {
-                return Column(
-                  children: [
-                    for (final item in summaries) ...[
-                      item,
-                      const SizedBox(height: 10),
-                    ],
-                  ],
-                );
-              }
-              return Row(
-                children: [
-                  for (final item in summaries)
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: item,
-                      ),
-                    ),
-                ],
-              );
-            },
-          ),
-          SizedBox(height: dashboard.summaryGap),
-          if (controller.visibleProviders.isEmpty)
-            Padding(
-              padding: const EdgeInsets.all(28),
-              child: Center(
-                child: Text(
-                  '没有启用的服务商\n请通过“管理服务商”添加或启用。',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: tokens.mutedText),
-                ),
-              ),
-            ),
-          for (final entry in controller.enabledConfigs.indexed) ...[
-            ProviderCard(
-              provider: controller.providers[entry.$2.id]!,
-              accent: Color(entry.$2.colorValue),
-              rechargeUrl: entry.$2.rechargeUrl,
-              lowBalanceThreshold: entry.$2.lowBalanceThreshold,
-              onRecharge: () => _openRechargePage(context, entry.$2),
-              onEditDailyUsage: () => _showManualUsageDialog(
-                context,
-                controller,
-                entry.$2,
-                UsagePeriod.daily,
-                controller.providers[entry.$2.id]!.dailyUsage,
-              ),
-              onEditMonthlyUsage: () => _showManualUsageDialog(
-                context,
-                controller,
-                entry.$2,
-                UsagePeriod.monthly,
-                controller.providers[entry.$2.id]!.monthlyUsage,
-              ),
-            ),
-            SizedBox(height: dashboard.providerGap),
-          ],
-          Text(
-            controller.lastRefresh == null
-                ? '缓存已就绪 · 正在后台同步'
-                : '最近更新 ${controller.lastRefresh!.hour.toString().padLeft(2, '0')}:${controller.lastRefresh!.minute.toString().padLeft(2, '0')} · Key 已安全保存在本地',
-            style: TextStyle(color: tokens.mutedText, fontSize: 12),
-          ),
-        ],
-      ),
+      child: content,
     );
   }
 }
@@ -878,13 +890,9 @@ class _Summary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = AppThemeTokens.of(context);
-    return Container(
+    return GlassSurface(
       padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        gradient: tokens.cardGradient,
-        borderRadius: BorderRadius.circular(tokens.cardRadius),
-        border: Border.all(color: tokens.outline),
-      ),
+      shadowAlpha: 0,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
