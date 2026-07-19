@@ -267,6 +267,8 @@ class ThemePackageService {
         'card_gradient_direction',
         'dashboard_layout_mode',
         'dashboard_density',
+        'use_glass_surface',
+        'use_liquid_glass_surface',
         'background_image_fit',
         'background_image_alignment',
         'background_image_opacity',

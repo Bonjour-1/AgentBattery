@@ -852,15 +852,6 @@ class _Content extends StatelessWidget {
     final key = dashboard.isFocus
         ? const Key('custom-dashboard-focus')
         : const Key('custom-dashboard-standard');
-    if (tokens.isGlassTheme) {
-      return GlassSurface(
-        key: key,
-        padding: dashboard.contentPadding,
-        gradient: contentGradient,
-        radius: contentRadius,
-        child: content,
-      );
-    }
     return Container(
       key: key,
       width: double.infinity,

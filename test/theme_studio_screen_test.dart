@@ -211,6 +211,66 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
   });
 
+  testWidgets('liquid-glass editor updates the landscape draft and preview', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1600, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final controller = await _controller();
+    addTearDown(controller.dispose);
+    await controller.saveCustomTheme(
+      CustomTheme(
+        id: '0f7c2b99-0d18-4e8e-8d47-2a918b6b6afe',
+        name: '风景',
+        layout: ThemeLayout.stage,
+        palette: const ThemePalette(
+          primary: 0xff0c6f8c,
+          secondary: 0xff4d9bb7,
+          stage: 0xff406b79,
+          content: 0xccf0f8fb,
+          pageBackground: 0xffe3f0f4,
+          card: 0x99ffffff,
+          dialogBackground: 0xfff8fcfd,
+          cardAlt: 0xffd4edf3,
+          text: 0xff183740,
+          mutedText: 0xff53747d,
+          onStage: 0xffffffff,
+          outline: 0xffa8cbd4,
+          success: 0xff247c70,
+          error: 0xffb4445c,
+          statusIdle: 0xff607983,
+          shadow: 0xff173e4a,
+        ),
+        cardRadius: 24,
+        controlRadius: 16,
+        contentRadius: 30,
+        shadowOpacity: .15,
+        stageOverlayOpacity: 0,
+      ),
+    );
+    await tester.pumpWidget(
+      _host(controller, ThemeStudioScreen(controller: controller)),
+    );
+    await tester.tap(find.text('风景').first);
+    await tester.pump();
+    await tester.ensureVisible(find.byKey(const Key('theme-liquid-glass-section')));
+    await tester.tap(find.byKey(const Key('theme-liquid-glass-section')));
+    await tester.pump();
+
+    final toggle = tester.widget<SwitchListTile>(
+      find.byKey(const Key('theme-liquid-glass-enabled')),
+    );
+    expect(toggle.value, isFalse);
+    toggle.onChanged!(true);
+    await tester.pump();
+    expect(
+      tester.widget<SwitchListTile>(
+        find.byKey(const Key('theme-liquid-glass-enabled')),
+      ).value,
+      isTrue,
+    );
+  });
+
   testWidgets(
     'advanced gradient switches create visible two-color preview gradients',
     (tester) async {

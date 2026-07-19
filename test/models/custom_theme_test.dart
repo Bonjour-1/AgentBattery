@@ -120,6 +120,15 @@ void main() {
           CustomTheme.fromJson(_customTheme.toJson()).backgroundImageOpacity,
           1,
         );
+        final glass = _customTheme.copyWith(
+          useGlassSurface: true,
+          useLiquidGlassSurface: true,
+        );
+        final legacy = Map<String, Object?>.from(_customTheme.toJson())
+          ..remove('use_glass_surface');
+        expect(glass.useGlassSurface, isTrue);
+        expect(CustomTheme.fromJson(glass.toJson()), glass);
+        expect(CustomTheme.fromJson(legacy).useGlassSurface, isFalse);
         expect(
           () => adjusted.copyWith(backgroundImageOpacity: 1.01),
           throwsArgumentError,

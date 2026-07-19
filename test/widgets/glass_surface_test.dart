@@ -27,6 +27,130 @@ void main() {
     expect(filter.filter, isA<ImageFilter>());
   });
 
+  testWidgets('an opted-in custom theme uses a clipped backdrop blur', (
+    tester,
+  ) async {
+    final theme = CustomTheme(
+      id: '1b4e28ba-2fa1-11d2-883f-0016d3cca427',
+      name: '风景',
+      layout: ThemeLayout.stage,
+      palette: const ThemePalette(
+        primary: 0xff010203,
+        secondary: 0xff040506,
+        stage: 0xff070809,
+        content: 0xff101112,
+        pageBackground: 0xff121314,
+        card: 0xff131415,
+        dialogBackground: 0xff141516,
+        cardAlt: 0xff151617,
+        text: 0xfff7f8f9,
+        mutedText: 0xffd7d8d9,
+        onStage: 0xffffffff,
+        outline: 0xff202122,
+        success: 0xff252627,
+        error: 0xff28292a,
+        statusIdle: 0xff2b2c2d,
+        shadow: 0xff000000,
+      ),
+      cardRadius: 20,
+      controlRadius: 14,
+      contentRadius: 28,
+      shadowOpacity: .2,
+      stageOverlayOpacity: .2,
+      useGlassSurface: true,
+      useLiquidGlassSurface: true,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppThemeTokens.custom(theme).materialTheme(),
+        home: Scaffold(
+          body: GlassSurface(
+            gradient: const LinearGradient(
+              begin: Alignment.centerLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0x99112233), Color(0x66556677)],
+            ),
+            child: const SizedBox(),
+          ),
+        ),
+      ),
+    );
+
+    final gradients = tester
+        .widgetList<DecoratedBox>(
+          find.descendant(
+            of: find.byType(GlassSurface),
+            matching: find.byType(DecoratedBox),
+          ),
+        )
+        .map((box) => box.decoration)
+        .whereType<BoxDecoration>()
+        .map((decoration) => decoration.gradient)
+        .whereType<LinearGradient>();
+    expect(
+      gradients,
+      contains(
+        isA<LinearGradient>()
+            .having((gradient) => gradient.begin, 'begin', Alignment.centerLeft)
+            .having(
+              (gradient) => gradient.end,
+              'end',
+              Alignment.bottomRight,
+            )
+            .having(
+              (gradient) => gradient.colors,
+              'colors',
+              const [Color(0x99112233), Color(0x66556677)],
+            ),
+      ),
+    );
+    expect(find.byType(BackdropFilter), findsOneWidget);
+  });
+
+  testWidgets('a liquid-glass surface can keep a custom gradient without blur', (
+    tester,
+  ) async {
+    final theme = CustomTheme(
+      id: '5e2e7d5f-1a2b-4cfb-bf42-cddbf6d5c653',
+      name: '风景',
+      layout: ThemeLayout.stage,
+      palette: const ThemePalette(
+        primary: 0xff010203,
+        secondary: 0xff040506,
+        stage: 0xff070809,
+        content: 0xff101112,
+        pageBackground: 0xff121314,
+        card: 0xff131415,
+        dialogBackground: 0xff141516,
+        cardAlt: 0xff151617,
+        text: 0xfff7f8f9,
+        mutedText: 0xffd7d8d9,
+        onStage: 0xffffffff,
+        outline: 0xff202122,
+        success: 0xff252627,
+        error: 0xff28292a,
+        statusIdle: 0xff2b2c2d,
+        shadow: 0xff000000,
+      ),
+      cardRadius: 20,
+      controlRadius: 14,
+      contentRadius: 28,
+      shadowOpacity: .2,
+      stageOverlayOpacity: .2,
+      useGlassSurface: true,
+      useLiquidGlassSurface: true,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppThemeTokens.custom(theme).materialTheme(),
+        home: Scaffold(
+          body: GlassSurface(blur: false, child: const SizedBox()),
+        ),
+      ),
+    );
+
+    expect(find.byType(BackdropFilter), findsNothing);
+  });
   testWidgets('non-glass themes keep their existing unblurred surfaces', (
     tester,
   ) async {

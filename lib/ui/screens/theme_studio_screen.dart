@@ -8,6 +8,7 @@ import '../../models/provider_view_state.dart';
 import '../../state/battery_controller.dart';
 import '../theme/app_theme_tokens.dart';
 import '../theme/resolved_theme.dart';
+import '../widgets/glass_surface.dart';
 import '../widgets/provider_card.dart';
 
 typedef ThemeBackgroundPicker = Future<XFile?> Function();
@@ -937,6 +938,33 @@ class _EditorPane extends StatelessWidget {
               ),
             ],
           ),
+          if (draftTheme.name == '风景') ...[
+            const SizedBox(height: 12),
+            ExpansionTile(
+              key: const Key('theme-liquid-glass-section'),
+              title: const Text('液态玻璃'),
+              subtitle: Text(
+                draftTheme.useLiquidGlassSurface
+                    ? '已启用：保留卡片渐变并叠加高光与轻模糊'
+                    : '保留你的卡片渐变，可选叠加高光与轻模糊',
+              ),
+              children: [
+                SwitchListTile(
+                  key: const Key('theme-liquid-glass-enabled'),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                  title: const Text('启用液态玻璃'),
+                  subtitle: const Text('不修改卡片的颜色、透明度或渐变方向'),
+                  value: draftTheme.useLiquidGlassSurface,
+                  onChanged: (enabled) => onChanged(
+                    (theme) => theme.copyWith(
+                      useGlassSurface: enabled,
+                      useLiquidGlassSurface: enabled,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 12),
           Text('圆角与透明度', style: Theme.of(context).textTheme.titleMedium),
           _ValueSlider(
@@ -1572,13 +1600,8 @@ class _PreviewSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = AppThemeTokens.of(context);
-    return Container(
+    return GlassSurface(
       padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: tokens.surface,
-        borderRadius: BorderRadius.circular(tokens.cardRadius),
-        border: Border.all(color: tokens.outline),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

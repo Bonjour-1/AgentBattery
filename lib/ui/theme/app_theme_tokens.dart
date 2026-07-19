@@ -50,6 +50,8 @@ class AppThemeTokens extends ThemeExtension<AppThemeTokens> {
     required this.cardRadius,
     required this.controlRadius,
     required this.contentRadius,
+    this.useGlassSurface = false,
+    this.useLiquidGlassSurface = false,
   });
 
   final AppTheme kind;
@@ -75,8 +77,10 @@ class AppThemeTokens extends ThemeExtension<AppThemeTokens> {
   final double cardRadius;
   final double controlRadius;
   final double contentRadius;
+  final bool useGlassSurface;
+  final bool useLiquidGlassSurface;
 
-  bool get isGlassTheme => kind == AppTheme.glass && name == '玻璃';
+  bool get isGlassTheme => useGlassSurface;
 
   static AppThemeTokens of(BuildContext context) =>
       Theme.of(context).extension<AppThemeTokens>() ?? forTheme(AppTheme.miku);
@@ -184,6 +188,7 @@ class AppThemeTokens extends ThemeExtension<AppThemeTokens> {
     AppTheme.glass => const AppThemeTokens(
       kind: AppTheme.glass,
       name: '玻璃',
+      useGlassSurface: true,
       stageGradient: LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
@@ -254,6 +259,8 @@ class AppThemeTokens extends ThemeExtension<AppThemeTokens> {
       // required by the existing non-nullable token API.
       kind: AppTheme.glass,
       name: theme.name,
+      useGlassSurface: theme.useGlassSurface,
+      useLiquidGlassSurface: theme.useLiquidGlassSurface,
       stageGradient: _customGradient(
         palette.stage,
         theme.stageGradientSecondary,
