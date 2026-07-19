@@ -1,0 +1,88 @@
+name: Publish Windows release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing v* tag to build and publish'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  publish-windows-release:
+    name: Build and publish Windows package
+    runs-on: windows-latest
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+
+    steps:
+      - name: Check out the tagged version
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
+          fetch-depth: 0
+
+      - name: Validate the release tag is on main
+        shell: bash
+        run: |
+          [[ "$TAG" =~ ^v.+ ]] || {
+            echo "Release tag must start with v."
+            exit 1
+          }
+          git fetch origin main --tags --force
+          TAG_COMMIT=$(git rev-list -n 1 "$TAG")
+          git merge-base --is-ancestor "$TAG_COMMIT" origin/main || {
+            echo "Release tags must point to a commit already merged into main."
+            exit 1
+          }
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run tests
+        run: flutter test
+
+      - name: Build Windows release
+        run: flutter build windows --release
+
+      - name: Package the complete Windows app
+        shell: pwsh
+        run: |
+          $tag = "$env:TAG"
+          $releaseDirectory = "build/windows/x64/runner/Release"
+          $archive = "AgentBattery-$tag-windows-x64.zip"
+
+          if (-not (Test-Path "$releaseDirectory/AgentBattery.exe")) {
+            throw "Windows executable was not generated."
+          }
+
+          Compress-Archive -Path "$releaseDirectory/*" -DestinationPath $archive -Force
+          "ARCHIVE=$archive" >> $env:GITHUB_ENV
+
+      - name: Create or update the GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$ARCHIVE" --clobber --repo "$GITHUB_REPOSITORY"
+            gh release edit "$TAG" --prerelease=false --latest --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$TAG" "$ARCHIVE" \
+              --title "AgentBattery $TAG" \
+              --generate-notes \
+              --latest \
+              --repo "$GITHUB_REPOSITORY"
+          fi

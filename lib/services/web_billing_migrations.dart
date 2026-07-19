@@ -346,6 +346,22 @@ WebBillingConfig _genericLegacyWebBillingConfig(
     if (!request.isConfigured) return;
     final id = kind.name;
     final headerResult = _legacyHeaders(request.headers);
+    final headers = <String, String>{...headerResult.headers};
+    if (request.useApiKeyAuthorization &&
+        !headers.containsKey('Authorization')) {
+      headers['Authorization'] = r'Bearer ${API_KEY}';
+      if (!secretDefinitions.any((item) => item.name == 'API_KEY')) {
+        secretDefinitions.add(
+          const SecretVariableDefinition(
+            id: 'legacy-api-key',
+            name: 'API_KEY',
+            displayName: 'API Key',
+            type: SecretVariableType.bearerToken,
+            required: true,
+          ),
+        );
+      }
+    }
     if (headerResult.raw != null) {
       metadata['${kind.name}_unparsed_headers'] = headerResult.raw;
     }
@@ -358,45 +374,52 @@ WebBillingConfig _genericLegacyWebBillingConfig(
       request.itemPath,
     ];
     for (final value in templateValues) {
-      for (final match
-          in RegExp(r'\$\{([A-Za-z][A-Za-z0-9_]*)\}').allMatches(value)) {
+      for (final match in RegExp(
+        r'\$\{([A-Za-z][A-Za-z0-9_]*)\}',
+      ).allMatches(value)) {
         final variableName = match.group(1)!;
         if (_isLegacyRuntimeVariable(variableName) ||
             secretDefinitions.any((item) => item.name == variableName)) {
           continue;
         }
-        secretDefinitions.add(SecretVariableDefinition(
-          id: 'legacy-${variableName.toLowerCase().replaceAll('_', '-')}',
-          name: variableName,
-          displayName: variableName,
-          type: _legacySecretType(variableName),
-          required: true,
-        ));
+        secretDefinitions.add(
+          SecretVariableDefinition(
+            id: 'legacy-${variableName.toLowerCase().replaceAll('_', '-')}',
+            name: variableName,
+            displayName: variableName,
+            type: _legacySecretType(variableName),
+            required: true,
+          ),
+        );
       }
     }
-    requests.add(RequestTemplate(
-      id: id,
-      method: request.method == BalanceRequestMethod.post ? 'POST' : 'GET',
-      urlTemplate: url.base,
-      queryTemplate: url.query,
-      headersTemplate: headerResult.headers,
-      bodyTemplate: request.body.isEmpty ? null : request.body,
-    ));
-    rules.add(MetricRule(
-      id: id,
-      kind: kind,
-      requestTemplateId: id,
-      responseRule: ResponseRule(
-        scalarPath: request.jsonPath,
-        itemPath: request.aggregation == MetricAggregation.sum
-            ? request.itemPath
-            : null,
-        aggregation: request.aggregation == MetricAggregation.sum
-            ? ResponseAggregation.sum
-            : ResponseAggregation.none,
+    requests.add(
+      RequestTemplate(
+        id: id,
+        method: request.method == BalanceRequestMethod.post ? 'POST' : 'GET',
+        urlTemplate: url.base,
+        queryTemplate: url.query,
+        headersTemplate: headers,
+        bodyTemplate: request.body.isEmpty ? null : request.body,
       ),
-      divisor: request.scale,
-    ));
+    );
+    rules.add(
+      MetricRule(
+        id: id,
+        kind: kind,
+        requestTemplateId: id,
+        responseRule: ResponseRule(
+          scalarPath: request.jsonPath,
+          itemPath: request.aggregation == MetricAggregation.sum
+              ? request.itemPath
+              : null,
+          aggregation: request.aggregation == MetricAggregation.sum
+              ? ResponseAggregation.sum
+              : ResponseAggregation.none,
+        ),
+        divisor: request.scale,
+      ),
+    );
   }
 
   add(WebBillingMetricKind.balance, legacy.balance);
@@ -446,7 +469,14 @@ SecretVariableType _legacySecretType(String value) {
 ({Map<String, String> headers, String? raw}) _legacyHeaders(String value) {
   if (value.trim().isEmpty) return (headers: const {}, raw: null);
   try {
-    return (headers: _headersWithSecret(value, legacyVariable: '', replacementVariable: ''), raw: null);
+    return (
+      headers: _headersWithSecret(
+        value,
+        legacyVariable: '',
+        replacementVariable: '',
+      ),
+      raw: null,
+    );
   } catch (_) {
     return (headers: const {}, raw: value);
   }

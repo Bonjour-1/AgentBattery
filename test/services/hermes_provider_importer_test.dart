@@ -4,6 +4,29 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   const importer = HermesProviderImporter();
 
+  test('builds Windows UNC paths from the installed WSL distro names', () {
+    expect(
+      HermesProviderImporter.windowsConfigPathsForDistros([
+        'Ubuntu-24.04',
+        ' Linux ',
+        '',
+      ]),
+      [
+        r'\\wsl.localhost\Ubuntu-24.04\root\.hermes\config.yaml',
+        r'\\wsl.localhost\Linux\root\.hermes\config.yaml',
+      ],
+    );
+  });
+
+  test('derives the adjacent Hermes environment file from a config UNC path', () {
+    expect(
+      HermesProviderImporter.windowsEnvPathForConfig(
+        r'\\wsl.localhost\Ubuntu-24.04\root\.hermes\config.yaml',
+      ),
+      r'\\wsl.localhost\Ubuntu-24.04\root\.hermes\.env',
+    );
+  });
+
   test(
     'imports declared metadata and API keys without putting keys in config',
     () {
