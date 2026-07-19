@@ -7,6 +7,7 @@ import 'package:agent_battery_flutter/models/web_billing_config.dart';
 import 'package:agent_battery_flutter/services/hermes_provider_importer.dart';
 import 'package:agent_battery_flutter/services/secure_key_store.dart';
 import 'package:agent_battery_flutter/services/storage_service.dart';
+import 'package:agent_battery_flutter/services/web_billing_engine.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -147,6 +148,128 @@ void main() {
       ]) {
         expect(saved, isNot(containsPair(key, anything)));
       }
+    },
+  );
+
+  test(
+    'old advanced provider loads and executes with the secure model API key',
+    () async {
+      const providerId = 'legacy-custom';
+      const apiKey = 'old-secure-model-key';
+      final oldProvider = <String, Object?>{
+        'id': providerId,
+        'name': 'Legacy Custom',
+        'color': 0xff123456,
+        'order': 0,
+        'enabled': true,
+        'base_url': 'https://models.example.test/v1',
+        'default_model': 'legacy-model',
+        'advanced_enabled': true,
+        'balance_url': 'https://billing.example.test/account',
+        'balance_method': 'post',
+        'balance_body': r'{"scope":"balance"}',
+        'balance_headers': '{"X-Legacy":"preserved"}',
+        'balance_json_path': 'data.available',
+      };
+      SharedPreferences.setMockInitialValues({
+        'agent_battery_state_v1': jsonEncode({
+          'provider_configs': [oldProvider],
+        }),
+      });
+      final keys = InMemorySecureKeyStore()
+        ..values[ProviderKeyManager.keyFor(providerId)] = apiKey;
+      final loaded = await StorageService(keyStore: keys).load();
+      final provider = loaded.providerConfigs.single;
+      final sent = <RawHttpRequest>[];
+
+      final result = await WebBillingEngine.withProviderKeyManager(
+        ProviderKeyManager(keys),
+        transport: (request) async {
+          sent.add(request);
+          return const WebBillingHttpResponse(
+            200,
+            '{"data":{"available":17.5}}',
+          );
+        },
+      ).execute(providerId: provider.id, config: provider.webBillingConfig!);
+      final persisted =
+          (jsonDecode(
+                (await SharedPreferences.getInstance()).getString(
+                  'agent_battery_state_v1',
+                )!,
+              )
+              as Map<String, dynamic>);
+      final saved = (persisted['provider_configs'] as List).single as Map;
+
+      expect(result.balance.value, 17.5);
+      expect(sent.single.method, 'POST');
+      expect(sent.single.body, oldProvider['balance_body']);
+      expect(sent.single.headers['X-Legacy'], 'preserved');
+      expect(sent.single.headers['Authorization'], 'Bearer $apiKey');
+      expect(
+        provider.webBillingConfig!.secretVariableDefinitions.map(
+          (definition) => definition.name,
+        ),
+        contains('API_KEY'),
+      );
+      expect(jsonEncode(saved), isNot(contains(apiKey)));
+      expect(saved, isNot(containsPair('api_key', anything)));
+    },
+  );
+
+  test(
+    'old balance token retains alternate authorization without replacing model key',
+    () async {
+      const providerId = 'legacy-token-provider';
+      const modelKey = 'model-api-key';
+      const balanceToken = 'dashboard-bearer';
+      SharedPreferences.setMockInitialValues({
+        'agent_battery_state_v1': jsonEncode({
+          'provider_configs': [
+            {
+              'id': providerId,
+              'name': 'Legacy Token Provider',
+              'color': 1,
+              'order': 0,
+              'enabled': true,
+              'base_url': 'https://models.example.test/v1',
+              'advanced_enabled': true,
+              'balance_url': 'https://billing.example.test/balance',
+              'balance_json_path': 'balance',
+            },
+          ],
+        }),
+      });
+      final keys = InMemorySecureKeyStore()
+        ..values[ProviderKeyManager.keyFor(providerId)] = modelKey
+        ..values[ProviderKeyManager.balanceTokenKeyFor(providerId)] =
+            balanceToken;
+      final provider = (await StorageService(
+        keyStore: keys,
+      ).load()).providerConfigs.single;
+      final sent = <RawHttpRequest>[];
+
+      await WebBillingEngine.withProviderKeyManager(
+        ProviderKeyManager(keys),
+        transport: (request) async {
+          sent.add(request);
+          return const WebBillingHttpResponse(200, '{"balance":1}');
+        },
+      ).execute(providerId: providerId, config: provider.webBillingConfig!);
+
+      expect(sent.single.headers['Authorization'], 'Bearer $balanceToken');
+      expect(keys.values[ProviderKeyManager.keyFor(providerId)], modelKey);
+      expect(
+        keys.values[ProviderKeyManager.balanceTokenKeyFor(providerId)],
+        balanceToken,
+      );
+      expect(
+        keys.values[ProviderKeyManager.webBillingVariableKeyFor(
+          providerId,
+          'API_KEY',
+        )],
+        balanceToken,
+      );
     },
   );
 

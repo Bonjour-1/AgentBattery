@@ -242,6 +242,22 @@ class ProviderKeyManager {
     required String? walletCookie,
     required String? walletSubjectId,
   }) async {
+    final webBilling = config.webBillingConfig;
+    if (webBilling?.source == 'legacy_provider_config' &&
+        webBilling!.secretVariableDefinitions.any(
+          (definition) => definition.name == 'API_KEY',
+        )) {
+      // The retired balance client preferred its separately stored balance token
+      // over the model API key. A scoped generic value preserves that precedence
+      // without changing or exposing the model key; otherwise API_KEY's read-only
+      // fallback continues to resolve the model key.
+      await _copyWebBillingVariableIfMissing(
+        config.id,
+        'API_KEY',
+        balanceToken,
+      );
+      return;
+    }
     if (!isRecognizedLegacyWebBillingConfig(config)) return;
     switch (config.id) {
       case 'deepseek':

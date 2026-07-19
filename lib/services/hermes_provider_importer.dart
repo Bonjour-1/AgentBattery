@@ -9,28 +9,61 @@ import '../models/provider_config.dart';
 class HermesProviderImporter {
   const HermesProviderImporter();
 
-  static const windowsConfigPath =
-      r'\\wsl.localhost\Linux\root\.hermes\config.yaml';
-  static const windowsEnvPath = r'\\wsl.localhost\Linux\root\.hermes\.env';
+  /// Returns the WSL UNC paths in discovery order.
+  ///
+  /// The distro name is deliberately discovered instead of assuming `Linux`,
+  /// because each user's WSL installation can use a different name.
+  static List<String> windowsConfigPathsForDistros(Iterable<String> distros) => [
+    for (final distro in distros)
+      if (distro.trim().isNotEmpty)
+        '\\\\wsl.localhost\\${distro.trim()}\\root\\.hermes\\config.yaml',
+  ];
+
+  static String windowsEnvPathForConfig(String configPath) =>
+      configPath.replaceFirst(RegExp(r'config\.yaml$'), '.env');
 
   Future<HermesImportPlan> readDefaultFiles() async {
     if (!Platform.isWindows) {
       throw const HermesImportException('此导入功能仅可在 Windows 上读取 WSL Hermes 配置。');
     }
-    try {
-      final config = await File(windowsConfigPath).readAsString();
-      String env = '';
+
+    final configPaths = windowsConfigPathsForDistros(await _wslDistros());
+    for (final configPath in configPaths) {
       try {
-        env = await File(windowsEnvPath).readAsString();
+        final config = await File(configPath).readAsString();
+        String env = '';
+        try {
+          env = await File(windowsEnvPathForConfig(configPath)).readAsString();
+        } on FileSystemException {
+          // A .env file is optional. Inline API keys still remain importable.
+        }
+        return parse(configYaml: config, envFile: env);
       } on FileSystemException {
-        // A .env file is optional. Inline API keys still remain importable.
+        // Try the next installed WSL distro before reporting an import failure.
       }
-      return parse(configYaml: config, envFile: env);
-    } on FileSystemException {
-      throw const HermesImportException(
-        '无法读取 WSL Hermes 配置。请确认 WSL 已启动且 \\wsl.localhost\\Linux 可访问。',
-      );
     }
+
+    throw const HermesImportException(
+      '无法读取 WSL Hermes 配置。请确认 WSL 已启动，并且某个发行版的 '
+      r'\\wsl.localhost\<发行版>\root\.hermes\config.yaml 可访问。',
+    );
+  }
+
+  Future<List<String>> _wslDistros() async {
+    try {
+      final result = await Process.run('wsl.exe', const ['--list', '--quiet']);
+      if (result.exitCode == 0) {
+        return result.stdout
+            .toString()
+            .split(RegExp(r'\r?\n'))
+            .map((name) => name.trim())
+            .where((name) => name.isNotEmpty)
+            .toList(growable: false);
+      }
+    } catch (_) {
+      // The user-facing error below explains how to restore WSL access.
+    }
+    return const [];
   }
 
   HermesImportPlan parse({required String configYaml, String envFile = ''}) {
