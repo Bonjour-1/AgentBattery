@@ -68,6 +68,7 @@ jobs:
             throw "Windows executable was not generated."
           }
 
+          Copy-Item "docs/通用网页账单配置说明.md" -Destination $releaseDirectory -Force
           Compress-Archive -Path "$releaseDirectory/*" -DestinationPath $archive -Force
           "ARCHIVE=$archive" >> $env:GITHUB_ENV
 
