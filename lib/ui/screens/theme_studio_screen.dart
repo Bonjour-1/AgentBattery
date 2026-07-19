@@ -47,8 +47,10 @@ class _ThemeStudioScreenState extends State<ThemeStudioScreen> {
     'primary': '主色',
     'secondary': '辅助色',
     'stage': '舞台背景',
-    'content': '内容背景',
+    'content': '数据面板背景',
+    'pageBackground': '页面背景',
     'card': '卡片',
+    'dialogBackground': '对话框背景',
     'cardAlt': '卡片辅助色',
     'text': '正文',
     'mutedText': '弱化正文',
@@ -563,7 +565,9 @@ const _stylePresets = <_ThemeStylePreset>[
       secondary: 0xff0ea5e9,
       stage: 0xff0f172a,
       content: 0xffe2e8f0,
+      pageBackground: 0xffe2e8f0,
       card: 0xffffffff,
+      dialogBackground: 0xffffffff,
       cardAlt: 0xfff1f5f9,
       text: 0xff0f172a,
       mutedText: 0xff475569,
@@ -591,7 +595,9 @@ const _stylePresets = <_ThemeStylePreset>[
       secondary: 0xffec4899,
       stage: 0xff312e81,
       content: 0xffe0e7ff,
+      pageBackground: 0xffe0e7ff,
       card: 0xd9ffffff,
+      dialogBackground: 0xd9ffffff,
       cardAlt: 0xbff5f3ff,
       text: 0xff312e81,
       mutedText: 0xff6d5f99,
@@ -624,7 +630,9 @@ const _stylePresets = <_ThemeStylePreset>[
       secondary: 0xffef4444,
       stage: 0xff09090b,
       content: 0xff18181b,
+      pageBackground: 0xff18181b,
       card: 0xff27272a,
+      dialogBackground: 0xff27272a,
       cardAlt: 0xff3f3f46,
       text: 0xfffafafa,
       mutedText: 0xffa1a1aa,
@@ -658,7 +666,9 @@ const _stylePresets = <_ThemeStylePreset>[
       secondary: 0xff14b8a6,
       stage: 0xffd1fae5,
       content: 0xffecfdf5,
+      pageBackground: 0xffecfdf5,
       card: 0xffffffff,
+      dialogBackground: 0xffffffff,
       cardAlt: 0xfff0fdf4,
       text: 0xff064e3b,
       mutedText: 0xff3f7667,
@@ -836,7 +846,12 @@ class _EditorPane extends StatelessWidget {
             _ColorPickerCard(
               label: entry.value,
               fieldKey:
-                  'theme-color-${entry.key == 'cardAlt' ? 'card-alt' : entry.key}',
+                  'theme-color-${switch (entry.key) {
+                    'cardAlt' => 'card-alt',
+                    'pageBackground' => 'page-background',
+                    'dialogBackground' => 'dialog-background',
+                    _ => entry.key,
+                  }}',
               value: _colorFor(draftTheme.palette, entry.key),
               onChanged: (color) => onChanged(
                 (theme) => theme.copyWith(
@@ -1270,6 +1285,13 @@ class ThemePreview extends StatelessWidget {
           decoration: BoxDecoration(gradient: tokens.stageGradient),
           child: Stack(
             children: [
+              if (theme.layout == ThemeLayout.dashboard)
+                Positioned.fill(
+                  child: DecoratedBox(
+                    key: const Key('theme-preview-dashboard-page-background'),
+                    decoration: BoxDecoration(color: tokens.pageBackground),
+                  ),
+                ),
               if (background != null)
                 Positioned.fill(
                   child: Opacity(
@@ -1357,31 +1379,38 @@ class _PreviewBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              DecoratedBox(
-                key: const Key('theme-preview-primary-swatch'),
-                decoration: BoxDecoration(
-                  color: tokens.primary,
-                  borderRadius: BorderRadius.circular(tokens.controlRadius),
+        DecoratedBox(
+          key: const Key('theme-preview-header-background'),
+          decoration: BoxDecoration(
+            color: tokens.pageBackground,
+            border: Border(bottom: BorderSide(color: tokens.outline)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                DecoratedBox(
+                  key: const Key('theme-preview-primary-swatch'),
+                  decoration: BoxDecoration(
+                    color: tokens.primary,
+                    borderRadius: BorderRadius.circular(tokens.controlRadius),
+                  ),
+                  child: const SizedBox(width: 32, height: 32),
                 ),
-                child: const SizedBox(width: 32, height: 32),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  theme.name,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: tokens.onStage,
-                    fontWeight: FontWeight.w900,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    theme.name,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: tokens.text,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                 ),
-              ),
-              Icon(Icons.refresh_rounded, color: tokens.onStage),
-            ],
+                Icon(Icons.refresh_rounded, color: tokens.text),
+              ],
+            ),
           ),
         ),
         Expanded(
@@ -1405,6 +1434,57 @@ class _PreviewBody extends StatelessWidget {
                   ? const Key('theme-preview-density-compact')
                   : const Key('theme-preview-density-comfortable'),
               children: [
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    previewPadding,
+                    previewPadding,
+                    previewPadding,
+                    10,
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: DecoratedBox(
+                          key: const Key('theme-preview-page-background'),
+                          decoration: BoxDecoration(
+                            color: tokens.pageBackground,
+                            borderRadius: BorderRadius.circular(
+                              tokens.controlRadius,
+                            ),
+                            border: Border.all(color: tokens.outline),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(10),
+                            child: Text(
+                              '页面 / 顶栏',
+                              style: TextStyle(color: tokens.text),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: DecoratedBox(
+                          key: const Key('theme-preview-dialog-background'),
+                          decoration: BoxDecoration(
+                            color: tokens.dialogBackground,
+                            borderRadius: BorderRadius.circular(
+                              tokens.cardRadius,
+                            ),
+                            border: Border.all(color: tokens.outline),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(10),
+                            child: Text(
+                              '对话框',
+                              style: TextStyle(color: tokens.text),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 LayoutBuilder(
                   builder: (context, constraints) {
                     final summaries = const [
@@ -1987,7 +2067,9 @@ int _colorFor(ThemePalette palette, String key) => switch (key) {
   'secondary' => palette.secondary,
   'stage' => palette.stage,
   'content' => palette.content,
+  'pageBackground' => palette.pageBackground,
   'card' => palette.card,
+  'dialogBackground' => palette.dialogBackground,
   'cardAlt' => palette.cardAlt,
   'text' => palette.text,
   'mutedText' => palette.mutedText,
@@ -2004,7 +2086,9 @@ ThemePalette _replaceColor(ThemePalette palette, String key, int value) =>
       'secondary' => palette.copyWith(secondary: value),
       'stage' => palette.copyWith(stage: value),
       'content' => palette.copyWith(content: value),
+      'pageBackground' => palette.copyWith(pageBackground: value),
       'card' => palette.copyWith(card: value),
+      'dialogBackground' => palette.copyWith(dialogBackground: value),
       'cardAlt' => palette.copyWith(cardAlt: value),
       'text' => palette.copyWith(text: value),
       'mutedText' => palette.copyWith(mutedText: value),

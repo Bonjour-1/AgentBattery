@@ -8,8 +8,14 @@ LinearGradient _customGradient(
   GradientDirection direction,
 ) {
   final (begin, end) = switch (direction) {
-    GradientDirection.topBottom => (Alignment.topCenter, Alignment.bottomCenter),
-    GradientDirection.leftRight => (Alignment.centerLeft, Alignment.centerRight),
+    GradientDirection.topBottom => (
+      Alignment.topCenter,
+      Alignment.bottomCenter,
+    ),
+    GradientDirection.leftRight => (
+      Alignment.centerLeft,
+      Alignment.centerRight,
+    ),
     GradientDirection.diagonal => (Alignment.topLeft, Alignment.bottomRight),
   };
   final primaryColor = Color(primary);
@@ -27,8 +33,9 @@ class AppThemeTokens extends ThemeExtension<AppThemeTokens> {
     required this.stageGradient,
     required this.contentGradient,
     required this.cardGradient,
-    required this.scaffold,
+    required this.pageBackground,
     required this.surface,
+    required this.dialogBackground,
     required this.surfaceAlt,
     required this.primary,
     required this.secondary,
@@ -50,8 +57,10 @@ class AppThemeTokens extends ThemeExtension<AppThemeTokens> {
   final LinearGradient stageGradient;
   final LinearGradient contentGradient;
   final LinearGradient cardGradient;
-  final Color scaffold;
+  final Color pageBackground;
+  Color get scaffold => pageBackground;
   final Color surface;
+  final Color dialogBackground;
   final Color surfaceAlt;
   final Color primary;
   final Color secondary;
@@ -86,8 +95,9 @@ class AppThemeTokens extends ThemeExtension<AppThemeTokens> {
       cardGradient: LinearGradient(
         colors: [Color(0xd9f8fffe), Color(0xcce0f8f5)],
       ),
-      scaffold: Color(0xffe9fffd),
+      pageBackground: Color(0xffe9fffd),
       surface: Color(0xfff3fffe),
+      dialogBackground: Color(0xfff3fffe),
       surfaceAlt: Color(0xffddf8f5),
       primary: Color(0xff15968e),
       secondary: Color(0xffff8fab),
@@ -119,8 +129,9 @@ class AppThemeTokens extends ThemeExtension<AppThemeTokens> {
         end: Alignment.bottomRight,
         colors: [Color(0xeafffbf2), Color(0xddebe3f2)],
       ),
-      scaffold: Color(0xfff4edf5),
+      pageBackground: Color(0xfff4edf5),
       surface: Color(0xfffffbf3),
+      dialogBackground: Color(0xfffffbf3),
       surfaceAlt: Color(0xffeee5f1),
       primary: Color(0xff51409a),
       secondary: Color(0xffb33f5b),
@@ -150,8 +161,9 @@ class AppThemeTokens extends ThemeExtension<AppThemeTokens> {
       cardGradient: LinearGradient(
         colors: [Color(0xfffffff8), Color(0xfffff2c4)],
       ),
-      scaffold: Color(0xfffff8df),
+      pageBackground: Color(0xfffff8df),
       surface: Color(0xfffffcf1),
+      dialogBackground: Color(0xfffffcf1),
       surfaceAlt: Color(0xfffff0bf),
       primary: Color(0xffe8891f),
       secondary: Color(0xffffb531),
@@ -181,8 +193,9 @@ class AppThemeTokens extends ThemeExtension<AppThemeTokens> {
       cardGradient: LinearGradient(
         colors: [Color(0xfffdfdff), Color(0xffedf1ff)],
       ),
-      scaffold: Color(0xfff5f7ff),
+      pageBackground: Color(0xfff5f7ff),
       surface: Color(0xfffbfcff),
+      dialogBackground: Color(0xfffbfcff),
       surfaceAlt: Color(0xffedf1ff),
       primary: Color(0xff6d7cff),
       secondary: Color(0xff4bc9ae),
@@ -212,8 +225,9 @@ class AppThemeTokens extends ThemeExtension<AppThemeTokens> {
       cardGradient: LinearGradient(
         colors: [Color(0xfffffeff), Color(0xffffe2ec)],
       ),
-      scaffold: Color(0xfffff8fa),
+      pageBackground: Color(0xfffff8fa),
       surface: Color(0xfffffbfc),
+      dialogBackground: Color(0xfffffbfc),
       surfaceAlt: Color(0xffffe2ec),
       primary: Color(0xffff6f91),
       secondary: Color(0xffff8fab),
@@ -253,8 +267,9 @@ class AppThemeTokens extends ThemeExtension<AppThemeTokens> {
         theme.cardGradientSecondary,
         theme.cardGradientDirection,
       ),
-      scaffold: Color(palette.content),
+      pageBackground: Color(palette.pageBackground),
       surface: Color(palette.card),
+      dialogBackground: Color(palette.dialogBackground),
       surfaceAlt: Color(palette.cardAlt),
       primary: Color(palette.primary),
       secondary: Color(palette.secondary),
@@ -300,11 +315,11 @@ class AppThemeTokens extends ThemeExtension<AppThemeTokens> {
     return ThemeData(
       useMaterial3: true,
       colorScheme: scheme,
-      scaffoldBackgroundColor: scaffold,
+      scaffoldBackgroundColor: pageBackground,
       fontFamily: 'Microsoft YaHei UI',
       extensions: [this],
       appBarTheme: AppBarTheme(
-        backgroundColor: scaffold,
+        backgroundColor: pageBackground,
         foregroundColor: text,
         elevation: 0,
       ),
@@ -315,7 +330,7 @@ class AppThemeTokens extends ThemeExtension<AppThemeTokens> {
         surfaceTintColor: Colors.transparent,
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: surface,
+        backgroundColor: dialogBackground,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(cardRadius),
         ),

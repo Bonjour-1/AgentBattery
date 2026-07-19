@@ -9,7 +9,9 @@ const _palette = ThemePalette(
   secondary: 0xffff8fab,
   stage: 0xff0d5753,
   content: 0xffe9fffd,
+  pageBackground: 0xffe9fffd,
   card: 0xfff3fffe,
+  dialogBackground: 0xfff3fffe,
   cardAlt: 0xffddf8f5,
   text: 0xff123f3d,
   mutedText: 0xff557a77,
@@ -36,6 +38,58 @@ final _customTheme = CustomTheme(
 
 void main() {
   group('CustomTheme', () {
+    test(
+      'migrates legacy page and dialog backgrounds without losing surfaces',
+      () {
+        final legacyPaletteJson = _palette.toJson()
+          ..remove('page_background')
+          ..remove('dialog_background');
+
+        final restored = ThemePalette.fromJson(legacyPaletteJson);
+
+        expect(restored.pageBackground, _palette.content);
+        expect(restored.dialogBackground, _palette.card);
+        expect(restored.cardAlt, _palette.cardAlt);
+      },
+    );
+
+    test('round trips and copies independent semantic backgrounds', () {
+      final palette = _palette.copyWith(
+        pageBackground: 0xff313233,
+        dialogBackground: 0xff343536,
+      );
+
+      expect(palette.content, _palette.content);
+      expect(palette.card, _palette.card);
+      expect(palette.cardAlt, _palette.cardAlt);
+      expect(palette.toJson()['page_background'], 0xff313233);
+      expect(palette.toJson()['dialog_background'], 0xff343536);
+      expect(ThemePalette.fromJson(palette.toJson()), palette);
+      expect(palette, isNot(_palette));
+      expect(palette.hashCode, isNot(_palette.hashCode));
+    });
+
+    test('rejects malformed explicit split background values', () {
+      for (final key in ['page_background', 'dialog_background']) {
+        expect(
+          () => ThemePalette.fromJson({..._palette.toJson(), key: null}),
+          throwsArgumentError,
+        );
+        expect(
+          () => ThemePalette.fromJson({..._palette.toJson(), key: 'invalid'}),
+          throwsArgumentError,
+        );
+      }
+    });
+
+    test('rejects partially migrated split backgrounds', () {
+      for (final missingKey in ['page_background', 'dialog_background']) {
+        final partialJson = _palette.toJson()..remove(missingKey);
+
+        expect(() => ThemePalette.fromJson(partialJson), throwsArgumentError);
+      }
+    });
+
     test('round trips every persisted customization field', () {
       final restored = CustomTheme.fromJson(_customTheme.toJson());
 
@@ -44,82 +98,91 @@ void main() {
       expect(restored.backgroundImageFileName, '1b4e28ba-background.webp');
     });
 
-    test('persists background fit, alignment, and opacity with old JSON defaults', () {
-      final adjusted = _customTheme.copyWith(
-        backgroundImageFit: BackgroundImageFit.contain,
-        backgroundImageAlignment: BackgroundImageAlignment.right,
-        backgroundImageOpacity: .65,
-      );
+    test(
+      'persists background fit, alignment, and opacity with old JSON defaults',
+      () {
+        final adjusted = _customTheme.copyWith(
+          backgroundImageFit: BackgroundImageFit.contain,
+          backgroundImageAlignment: BackgroundImageAlignment.right,
+          backgroundImageOpacity: .65,
+        );
 
-      expect(CustomTheme.fromJson(adjusted.toJson()), adjusted);
-      expect(
-        CustomTheme.fromJson(_customTheme.toJson()).backgroundImageFit,
-        BackgroundImageFit.cover,
-      );
-      expect(
-        CustomTheme.fromJson(_customTheme.toJson()).backgroundImageAlignment,
-        BackgroundImageAlignment.center,
-      );
-      expect(
-        CustomTheme.fromJson(_customTheme.toJson()).backgroundImageOpacity,
-        1,
-      );
-      expect(
-        () => adjusted.copyWith(backgroundImageOpacity: 1.01),
-        throwsArgumentError,
-      );
-    });
+        expect(CustomTheme.fromJson(adjusted.toJson()), adjusted);
+        expect(
+          CustomTheme.fromJson(_customTheme.toJson()).backgroundImageFit,
+          BackgroundImageFit.cover,
+        );
+        expect(
+          CustomTheme.fromJson(_customTheme.toJson()).backgroundImageAlignment,
+          BackgroundImageAlignment.center,
+        );
+        expect(
+          CustomTheme.fromJson(_customTheme.toJson()).backgroundImageOpacity,
+          1,
+        );
+        expect(
+          () => adjusted.copyWith(backgroundImageOpacity: 1.01),
+          throwsArgumentError,
+        );
+      },
+    );
 
-    test('persists optional layered gradients and defaults old JSON to solid', () {
-      final layered = _customTheme.copyWith(
-        stageGradientSecondary: 0xff112233,
-        stageGradientDirection: GradientDirection.diagonal,
-        contentGradientSecondary: 0xff445566,
-        contentGradientDirection: GradientDirection.leftRight,
-        cardGradientSecondary: 0xff778899,
-        cardGradientDirection: GradientDirection.topBottom,
-      );
-      final legacy = Map<String, Object?>.from(_customTheme.toJson())
-        ..remove('stage_gradient_secondary')
-        ..remove('stage_gradient_direction')
-        ..remove('content_gradient_secondary')
-        ..remove('content_gradient_direction')
-        ..remove('card_gradient_secondary')
-        ..remove('card_gradient_direction');
+    test(
+      'persists optional layered gradients and defaults old JSON to solid',
+      () {
+        final layered = _customTheme.copyWith(
+          stageGradientSecondary: 0xff112233,
+          stageGradientDirection: GradientDirection.diagonal,
+          contentGradientSecondary: 0xff445566,
+          contentGradientDirection: GradientDirection.leftRight,
+          cardGradientSecondary: 0xff778899,
+          cardGradientDirection: GradientDirection.topBottom,
+        );
+        final legacy = Map<String, Object?>.from(_customTheme.toJson())
+          ..remove('stage_gradient_secondary')
+          ..remove('stage_gradient_direction')
+          ..remove('content_gradient_secondary')
+          ..remove('content_gradient_direction')
+          ..remove('card_gradient_secondary')
+          ..remove('card_gradient_direction');
 
-      expect(CustomTheme.fromJson(layered.toJson()), layered);
-      expect(CustomTheme.fromJson(legacy).stageGradientSecondary, isNull);
-      expect(
-        CustomTheme.fromJson(legacy).stageGradientDirection,
-        GradientDirection.topBottom,
-      );
-      expect(
-        () => _customTheme.copyWith(cardGradientSecondary: -1),
-        throwsArgumentError,
-      );
-      expect(
-        () => CustomTheme.fromJson({
-          ..._customTheme.toJson(),
-          'stage_gradient_direction': 'freeform',
-        }),
-        throwsArgumentError,
-      );
-    });
+        expect(CustomTheme.fromJson(layered.toJson()), layered);
+        expect(CustomTheme.fromJson(legacy).stageGradientSecondary, isNull);
+        expect(
+          CustomTheme.fromJson(legacy).stageGradientDirection,
+          GradientDirection.topBottom,
+        );
+        expect(
+          () => _customTheme.copyWith(cardGradientSecondary: -1),
+          throwsArgumentError,
+        );
+        expect(
+          () => CustomTheme.fromJson({
+            ..._customTheme.toJson(),
+            'stage_gradient_direction': 'freeform',
+          }),
+          throwsArgumentError,
+        );
+      },
+    );
 
-    test('defaults legacy JSON to the standard comfortable dashboard presentation', () {
-      final legacy = Map<String, Object?>.from(_customTheme.toJson())
-        ..remove('dashboard_layout_mode')
-        ..remove('dashboard_density');
-      final focusedCompact = _customTheme.copyWith(
-        dashboardLayoutMode: DashboardLayoutMode.focus,
-        dashboardDensity: DashboardDensity.compact,
-      );
+    test(
+      'defaults legacy JSON to the standard comfortable dashboard presentation',
+      () {
+        final legacy = Map<String, Object?>.from(_customTheme.toJson())
+          ..remove('dashboard_layout_mode')
+          ..remove('dashboard_density');
+        final focusedCompact = _customTheme.copyWith(
+          dashboardLayoutMode: DashboardLayoutMode.focus,
+          dashboardDensity: DashboardDensity.compact,
+        );
 
-      final restored = CustomTheme.fromJson(legacy);
-      expect(restored.dashboardLayoutMode, DashboardLayoutMode.standard);
-      expect(restored.dashboardDensity, DashboardDensity.comfortable);
-      expect(CustomTheme.fromJson(focusedCompact.toJson()), focusedCompact);
-    });
+        final restored = CustomTheme.fromJson(legacy);
+        expect(restored.dashboardLayoutMode, DashboardLayoutMode.standard);
+        expect(restored.dashboardDensity, DashboardDensity.comfortable);
+        expect(CustomTheme.fromJson(focusedCompact.toJson()), focusedCompact);
+      },
+    );
 
     test(
       'rejects invalid ID, blank or overlong name, invalid colors and bounds',

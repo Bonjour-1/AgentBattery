@@ -10,7 +10,9 @@ final _palette = const ThemePalette(
   secondary: 0xff040506,
   stage: 0xff070809,
   content: 0xff101112,
+  pageBackground: 0xff313233,
   card: 0xff131415,
+  dialogBackground: 0xff343536,
   cardAlt: 0xff161718,
   text: 0xff191a1b,
   mutedText: 0xff1c1d1e,
@@ -40,8 +42,9 @@ void main() {
     final tokens = resolved.tokens;
 
     expect(resolved.name, 'Custom night');
-    expect(tokens.scaffold, const Color(0xff101112));
+    expect(tokens.pageBackground, const Color(0xff313233));
     expect(tokens.surface, const Color(0xff131415));
+    expect(tokens.dialogBackground, const Color(0xff343536));
     expect(tokens.surfaceAlt, const Color(0xff161718));
     expect(tokens.primary, const Color(0xff010203));
     expect(tokens.secondary, const Color(0xff040506));
@@ -69,6 +72,25 @@ void main() {
     expect(tokens.controlRadius, 12);
     expect(tokens.contentRadius, 13);
   });
+
+  test(
+    'material theme keeps page card dialog and input surfaces independent',
+    () {
+      final tokens = ResolvedTheme.custom(
+        _customTheme(ThemeLayout.dashboard),
+      ).tokens;
+      final materialTheme = tokens.materialTheme();
+
+      expect(materialTheme.scaffoldBackgroundColor, tokens.pageBackground);
+      expect(materialTheme.appBarTheme.backgroundColor, tokens.pageBackground);
+      expect(materialTheme.cardTheme.color, tokens.surface);
+      expect(
+        materialTheme.dialogTheme.backgroundColor,
+        tokens.dialogBackground,
+      );
+      expect(materialTheme.inputDecorationTheme.fillColor, tokens.surfaceAlt);
+    },
+  );
 
   test('custom layered gradients resolve colors and safe directions', () {
     final tokens = ResolvedTheme.custom(

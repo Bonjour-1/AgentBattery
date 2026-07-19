@@ -86,8 +86,9 @@ class _HomeScreenState extends State<HomeScreen> {
         .clamp(0.0, 1.0)
         .toDouble();
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(gradient: tokens.stageGradient),
+      body: ColoredBox(
+        key: const Key('custom-dashboard-page-background'),
+        color: tokens.pageBackground,
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -117,6 +118,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   _Header(
                     controller: widget.controller,
                     onExitRequested: widget.onExitRequested,
+                    onPageBackground: true,
                   ),
                   Expanded(
                     child: _Content(
@@ -501,13 +503,19 @@ class _ThemeMenuAction {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.controller, this.onExitRequested});
+  const _Header({
+    required this.controller,
+    this.onExitRequested,
+    this.onPageBackground = false,
+  });
   final BatteryController controller;
   final VoidCallback? onExitRequested;
+  final bool onPageBackground;
 
   @override
   Widget build(BuildContext context) {
     final tokens = AppThemeTokens.of(context);
+    final headerText = onPageBackground ? tokens.text : tokens.onStage;
     final actions = [
       PopupMenuButton<_ThemeMenuAction>(
         tooltip: '切换主题',
@@ -523,11 +531,20 @@ class _Header extends StatelessWidget {
           );
         },
         itemBuilder: (_) => [
-          PopupMenuItem(value: _ThemeMenuAction.miku, child: const Text('MIKU')),
+          PopupMenuItem(
+            value: _ThemeMenuAction.miku,
+            child: const Text('MIKU'),
+          ),
           PopupMenuItem(value: _ThemeMenuAction.glass, child: const Text('玻璃')),
           PopupMenuItem(value: _ThemeMenuAction.cute, child: const Text('可爱风')),
-          PopupMenuItem(value: _ThemeMenuAction.mita, child: const Text('米塔彩铅')),
-          PopupMenuItem(value: _ThemeMenuAction.nailong, child: const Text('奶龙')),
+          PopupMenuItem(
+            value: _ThemeMenuAction.mita,
+            child: const Text('米塔彩铅'),
+          ),
+          PopupMenuItem(
+            value: _ThemeMenuAction.nailong,
+            child: const Text('奶龙'),
+          ),
           if (controller.customThemes.isNotEmpty) ...[
             const PopupMenuDivider(),
             const PopupMenuItem<_ThemeMenuAction>(
@@ -620,7 +637,7 @@ class _Header extends StatelessWidget {
                         : 'AGENT BATTERY',
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: tokens.onStage,
+                      color: headerText,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
@@ -629,7 +646,7 @@ class _Header extends StatelessWidget {
                         ? '彩铅小屋里的 AI 能量记录册'
                         : '${tokens.name} · 模型能量与用量中心',
                     style: TextStyle(
-                      color: tokens.onStage.withValues(alpha: .76),
+                      color: headerText.withValues(alpha: .76),
                       fontSize: 13,
                     ),
                   ),
@@ -637,7 +654,7 @@ class _Header extends StatelessWidget {
                     Text(
                       '✦  ♥',
                       style: TextStyle(
-                        color: tokens.onStage.withValues(alpha: .76),
+                        color: headerText.withValues(alpha: .76),
                         fontSize: 12,
                       ),
                     ),

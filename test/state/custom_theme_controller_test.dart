@@ -10,6 +10,7 @@ import 'package:agent_battery_flutter/services/secure_key_store.dart';
 import 'package:agent_battery_flutter/services/storage_service.dart';
 import 'package:agent_battery_flutter/services/theme_background_store.dart';
 import 'package:agent_battery_flutter/state/battery_controller.dart';
+import 'package:agent_battery_flutter/ui/theme/app_theme_tokens.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -41,8 +42,10 @@ class _FakeThemeBackgroundStore implements ThemeBackgroundService {
   }
 
   @override
-  Future<String> importFile({required String themeId, required File source}) async =>
-      importedFileName;
+  Future<String> importFile({
+    required String themeId,
+    required File source,
+  }) async => importedFileName;
 
   @override
   Future<File?> resolve(String fileName) async => null;
@@ -67,7 +70,9 @@ final _customTheme = CustomTheme(
     secondary: 0xffff8fab,
     stage: 0xff0d5753,
     content: 0xffe9fffd,
+    pageBackground: 0xffe9fffd,
     card: 0xfff3fffe,
+    dialogBackground: 0xfff3fffe,
     cardAlt: 0xffddf8f5,
     text: 0xff123f3d,
     mutedText: 0xff557a77,
@@ -89,7 +94,9 @@ Future<BatteryController> _controller(
   AppSnapshot snapshot, {
   _FakeThemeBackgroundStore? backgrounds,
 }) async {
-  SharedPreferences.setMockInitialValues({_stateKey: jsonEncode(snapshot.toJson())});
+  SharedPreferences.setMockInitialValues({
+    _stateKey: jsonEncode(snapshot.toJson()),
+  });
   final controller = BatteryController(
     storage: StorageService(keyStore: _MemorySecureKeyStore()),
     api: ApiClient(),
@@ -100,110 +107,165 @@ Future<BatteryController> _controller(
 }
 
 void main() {
-  test('copies a builtin preset into an independently editable UUID draft', () async {
-    final controller = await _controller(const AppSnapshot());
-    addTearDown(controller.dispose);
+  test(
+    'copies a builtin preset into an independently editable UUID draft',
+    () async {
+      final controller = await _controller(const AppSnapshot());
+      addTearDown(controller.dispose);
 
-    final draft = controller.copyBuiltinTheme(AppTheme.miku);
+      final draft = controller.copyBuiltinTheme(AppTheme.miku);
 
-    expect(draft.id, matches(RegExp(r'^[0-9a-f-]{36}$')));
-    expect(draft.name, 'MIKU 副本');
-    expect(draft.layout, ThemeLayout.stage);
-    expect(draft.palette.primary, 0xff15968e);
-    expect(draft.cardRadius, 24);
-    expect(controller.customThemes, isEmpty);
-  });
+      expect(draft.id, matches(RegExp(r'^[0-9a-f-]{36}$')));
+      expect(draft.name, 'MIKU 副本');
+      expect(draft.layout, ThemeLayout.stage);
+      expect(draft.palette.primary, 0xff15968e);
+      final tokens = AppThemeTokens.forTheme(AppTheme.miku);
+      expect(
+        draft.palette.content,
+        tokens.contentGradient.colors.first.toARGB32(),
+      );
+      expect(draft.palette.pageBackground, tokens.scaffold.toARGB32());
+      expect(draft.palette.card, tokens.cardGradient.colors.first.toARGB32());
+      expect(
+        draft.palette.dialogBackground,
+        tokens.dialogBackground.toARGB32(),
+      );
+      expect(draft.palette.content, isNot(draft.palette.pageBackground));
+      expect(draft.palette.card, isNot(draft.palette.dialogBackground));
+      expect(draft.cardRadius, 24);
+      expect(controller.customThemes, isEmpty);
+    },
+  );
 
-  test('saves and applies a custom theme without changing providers or usage', () async {
-    final controller = await _controller(
-      AppSnapshot(
-        providerConfigs: const [_provider],
-        providers: const {'one': ProviderUsage(lastBalance: 9, dailyUsage: 2)},
-      ),
-    );
-    addTearDown(controller.dispose);
-    final configs = controller.configs;
-    final usage = controller.providers['one'];
+  test(
+    'saves and applies a custom theme without changing providers or usage',
+    () async {
+      final controller = await _controller(
+        AppSnapshot(
+          providerConfigs: const [_provider],
+          providers: const {
+            'one': ProviderUsage(lastBalance: 9, dailyUsage: 2),
+          },
+        ),
+      );
+      addTearDown(controller.dispose);
+      final configs = controller.configs;
+      final usage = controller.providers['one'];
 
-    await controller.saveCustomTheme(_customTheme);
-    await controller.applyThemeReference(ThemeReference.custom(_themeId));
+      await controller.saveCustomTheme(_customTheme);
+      await controller.applyThemeReference(ThemeReference.custom(_themeId));
 
-    expect(controller.customThemes, [_customTheme]);
-    expect(controller.themeReference, const ThemeReference.custom(_themeId));
-    expect(controller.resolvedTheme.name, 'Midnight');
-    expect(controller.configs, configs);
-    expect(controller.providers['one'], usage);
-  });
+      expect(controller.customThemes, [_customTheme]);
+      expect(controller.themeReference, const ThemeReference.custom(_themeId));
+      expect(controller.resolvedTheme.name, 'Midnight');
+      expect(controller.configs, configs);
+      expect(controller.providers['one'], usage);
+    },
+  );
 
   test('renames custom themes but never builtin presets', () async {
-    final controller = await _controller(AppSnapshot(customThemes: [_customTheme]));
+    final controller = await _controller(
+      AppSnapshot(customThemes: [_customTheme]),
+    );
     addTearDown(controller.dispose);
 
     await controller.renameCustomTheme(_themeId, ' Renamed ');
     await controller.renameCustomTheme('miku', 'Not allowed');
 
     expect(controller.customThemes.single.name, 'Renamed');
-    expect(controller.themeReference, const ThemeReference.builtin(AppTheme.miku));
-  });
-
-  test('deleting protected or missing themes does not alter custom records', () async {
-    final controller = await _controller(AppSnapshot(customThemes: [_customTheme]));
-    addTearDown(controller.dispose);
-
-    await controller.deleteCustomTheme('miku');
-    await controller.deleteCustomTheme('missing');
-
-    expect(controller.customThemes, [_customTheme]);
-  });
-
-  test('deleting the active custom theme cleans its background then falls back', () async {
-    final backgrounds = _FakeThemeBackgroundStore();
-    final themed = _customTheme.copyWith(backgroundImageFileName: 'old.webp');
-    final controller = await _controller(
-      AppSnapshot(
-        themeReference: const ThemeReference.custom(_themeId),
-        customThemes: [themed],
-      ),
-      backgrounds: backgrounds,
+    expect(
+      controller.themeReference,
+      const ThemeReference.builtin(AppTheme.miku),
     );
-    addTearDown(controller.dispose);
-
-    await controller.deleteCustomTheme(_themeId);
-
-    expect(backgrounds.deleted, ['old.webp']);
-    expect(controller.customThemes, isEmpty);
-    expect(controller.themeReference, const ThemeReference.builtin(AppTheme.miku));
   });
 
-  test('background cleanup failure leaves the theme record and active reference intact', () async {
-    final backgrounds = _FakeThemeBackgroundStore()..failDelete = true;
-    final themed = _customTheme.copyWith(backgroundImageFileName: 'old.webp');
-    final controller = await _controller(
-      AppSnapshot(
-        themeReference: const ThemeReference.custom(_themeId),
-        customThemes: [themed],
-      ),
-      backgrounds: backgrounds,
-    );
-    addTearDown(controller.dispose);
+  test(
+    'deleting protected or missing themes does not alter custom records',
+    () async {
+      final controller = await _controller(
+        AppSnapshot(customThemes: [_customTheme]),
+      );
+      addTearDown(controller.dispose);
 
-    await expectLater(controller.deleteCustomTheme(_themeId), throwsStateError);
+      await controller.deleteCustomTheme('miku');
+      await controller.deleteCustomTheme('missing');
 
-    expect(controller.customThemes, [themed]);
-    expect(controller.themeReference, const ThemeReference.custom(_themeId));
-  });
+      expect(controller.customThemes, [_customTheme]);
+    },
+  );
 
-  test('imports a background by saving new theme state before deleting old file', () async {
-    final backgrounds = _FakeThemeBackgroundStore();
-    final old = _customTheme.copyWith(backgroundImageFileName: 'old.webp');
-    final controller = await _controller(AppSnapshot(customThemes: [old]), backgrounds: backgrounds);
-    addTearDown(controller.dispose);
+  test(
+    'deleting the active custom theme cleans its background then falls back',
+    () async {
+      final backgrounds = _FakeThemeBackgroundStore();
+      final themed = _customTheme.copyWith(backgroundImageFileName: 'old.webp');
+      final controller = await _controller(
+        AppSnapshot(
+          themeReference: const ThemeReference.custom(_themeId),
+          customThemes: [themed],
+        ),
+        backgrounds: backgrounds,
+      );
+      addTearDown(controller.dispose);
 
-    await controller.importCustomThemeBackground(_themeId, File('source.webp'));
+      await controller.deleteCustomTheme(_themeId);
 
-    expect(controller.customThemes.single.backgroundImageFileName, 'new-background.webp');
-    expect(backgrounds.deleted, ['old.webp']);
-  });
+      expect(backgrounds.deleted, ['old.webp']);
+      expect(controller.customThemes, isEmpty);
+      expect(
+        controller.themeReference,
+        const ThemeReference.builtin(AppTheme.miku),
+      );
+    },
+  );
+
+  test(
+    'background cleanup failure leaves the theme record and active reference intact',
+    () async {
+      final backgrounds = _FakeThemeBackgroundStore()..failDelete = true;
+      final themed = _customTheme.copyWith(backgroundImageFileName: 'old.webp');
+      final controller = await _controller(
+        AppSnapshot(
+          themeReference: const ThemeReference.custom(_themeId),
+          customThemes: [themed],
+        ),
+        backgrounds: backgrounds,
+      );
+      addTearDown(controller.dispose);
+
+      await expectLater(
+        controller.deleteCustomTheme(_themeId),
+        throwsStateError,
+      );
+
+      expect(controller.customThemes, [themed]);
+      expect(controller.themeReference, const ThemeReference.custom(_themeId));
+    },
+  );
+
+  test(
+    'imports a background by saving new theme state before deleting old file',
+    () async {
+      final backgrounds = _FakeThemeBackgroundStore();
+      final old = _customTheme.copyWith(backgroundImageFileName: 'old.webp');
+      final controller = await _controller(
+        AppSnapshot(customThemes: [old]),
+        backgrounds: backgrounds,
+      );
+      addTearDown(controller.dispose);
+
+      await controller.importCustomThemeBackground(
+        _themeId,
+        File('source.webp'),
+      );
+
+      expect(
+        controller.customThemes.single.backgroundImageFileName,
+        'new-background.webp',
+      );
+      expect(backgrounds.deleted, ['old.webp']);
+    },
+  );
 
   test('unknown reference applies the safe MIKU fallback', () async {
     final controller = await _controller(const AppSnapshot());
@@ -211,6 +273,9 @@ void main() {
 
     await controller.applyThemeReference(const ThemeReference.custom(_themeId));
 
-    expect(controller.themeReference, const ThemeReference.builtin(AppTheme.miku));
+    expect(
+      controller.themeReference,
+      const ThemeReference.builtin(AppTheme.miku),
+    );
   });
 }

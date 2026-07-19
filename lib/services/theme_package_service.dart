@@ -271,8 +271,30 @@ class ThemePackageService {
         'background_image_alignment',
         'background_image_opacity',
       };
+      final rawPalette = json['palette'];
+      if (rawPalette is! Map) throw const FormatException();
+      final palette = Map<String, Object?>.from(rawPalette);
+      const allowedPalette = {
+        'primary',
+        'secondary',
+        'stage',
+        'content',
+        'page_background',
+        'card',
+        'dialog_background',
+        'card_alt',
+        'text',
+        'muted_text',
+        'on_stage',
+        'outline',
+        'success',
+        'error',
+        'status_idle',
+        'shadow',
+      };
       if (json.keys.any((key) => !allowed.contains(key)) ||
-          json.containsKey('background_image_file_name')) {
+          json.containsKey('background_image_file_name') ||
+          palette.keys.any((key) => !allowedPalette.contains(key))) {
         throw const FormatException();
       }
       return CustomTheme.fromJson(json);
