@@ -8,6 +8,7 @@ import '../../models/provider_view_state.dart';
 import '../../state/battery_controller.dart';
 import '../theme/app_theme_tokens.dart';
 import '../theme/resolved_theme.dart';
+import '../widgets/glass_surface.dart';
 import '../widgets/provider_card.dart';
 
 typedef ThemeBackgroundPicker = Future<XFile?> Function();
@@ -938,6 +939,71 @@ class _EditorPane extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
+          ExpansionTile(
+            key: const Key('theme-liquid-glass-section'),
+            title: const Text('液态玻璃'),
+            subtitle: Text(
+              draftTheme.useLiquidGlassSurface
+                  ? '已启用：折射高光、透明层与背景柔化'
+                  : '关闭时完全使用你的卡片渐变',
+            ),
+            children: [
+              SwitchListTile(
+                key: const Key('theme-liquid-glass-enabled'),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                title: const Text('启用液态玻璃'),
+                subtitle: const Text('关闭时恢复自定义卡片渐变，不叠加玻璃材质'),
+                value: draftTheme.useLiquidGlassSurface,
+                onChanged: (enabled) => onChanged(
+                  (theme) => theme.copyWith(
+                    useGlassSurface: enabled,
+                    useLiquidGlassSurface: enabled,
+                  ),
+                ),
+              ),
+              if (draftTheme.useLiquidGlassSurface) ...[
+                _ValueSlider(
+                  fieldKey: 'theme-glass-transparency-slider',
+                  label: '玻璃通透度',
+                  value: draftTheme.glassTransparency,
+                  min: 0,
+                  max: 1,
+                  onChanged: (value) => onChanged(
+                    (theme) => theme.copyWith(glassTransparency: value),
+                  ),
+                ),
+                _ValueSlider(
+                  fieldKey: 'theme-glass-highlight-slider',
+                  label: '折射高光',
+                  value: draftTheme.glassHighlight,
+                  min: 0,
+                  max: 1,
+                  onChanged: (value) => onChanged(
+                    (theme) => theme.copyWith(glassHighlight: value),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: DropdownButtonFormField<GlassBlur>(
+                    key: const Key('theme-glass-blur'),
+                    initialValue: draftTheme.glassBlur,
+                    decoration: const InputDecoration(labelText: '背景柔化'),
+                    items: const [
+                      DropdownMenuItem(value: GlassBlur.none, child: Text('无')),
+                      DropdownMenuItem(value: GlassBlur.light, child: Text('轻')),
+                      DropdownMenuItem(value: GlassBlur.soft, child: Text('柔和')),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        onChanged((theme) => theme.copyWith(glassBlur: value));
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 12),
           Text('圆角与透明度', style: Theme.of(context).textTheme.titleMedium),
           _ValueSlider(
             fieldKey: 'theme-card-radius-slider',
@@ -1572,13 +1638,8 @@ class _PreviewSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = AppThemeTokens.of(context);
-    return Container(
+    return GlassSurface(
       padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: tokens.surface,
-        borderRadius: BorderRadius.circular(tokens.cardRadius),
-        border: Border.all(color: tokens.outline),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
