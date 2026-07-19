@@ -9,6 +9,32 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   testWidgets(
+    'saving auto-refresh settings closes without a disposed controller',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final controller = BatteryController(
+        storage: StorageService(),
+        api: ApiClient(),
+      );
+      await tester.pumpWidget(
+        AgentBatteryApp(controller: controller, initializeServices: false),
+      );
+      await tester.pump();
+
+      await tester.tap(find.byTooltip('自动更新设置'));
+      await tester.pump();
+      await tester.tap(find.text('打开自动更新'));
+      await tester.pump();
+      await tester.tap(find.text('保存'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('自动更新设置'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'renders every persisted theme without overflow on a compact view',
     (tester) async {
       tester.view.physicalSize = const Size(620, 650);

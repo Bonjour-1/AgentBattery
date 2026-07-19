@@ -1,6 +1,7 @@
 import 'package:agent_battery_flutter/models/custom_theme.dart';
 import 'package:agent_battery_flutter/models/provider_view_state.dart';
 import 'package:agent_battery_flutter/ui/theme/app_theme_tokens.dart';
+import 'package:agent_battery_flutter/ui/widgets/glass_surface.dart';
 import 'package:agent_battery_flutter/ui/widgets/provider_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -91,15 +92,10 @@ void main() {
 
     final cardSurface = find.descendant(
       of: find.byType(ProviderCard),
-      matching: find.byWidgetPredicate(
-        (widget) =>
-            widget is Container &&
-            widget.decoration is BoxDecoration &&
-            (widget.decoration! as BoxDecoration).gradient != null,
-      ),
+      matching: find.byType(GlassSurface),
     );
-    final card = tester.widget<Container>(cardSurface);
-    final cardGradient = (card.decoration! as BoxDecoration).gradient!;
+    final card = tester.widget<GlassSurface>(cardSurface);
+    final cardGradient = card.gradient ?? _splitTokens.cardGradient;
     expect(cardGradient.colors.first, const Color(0xff607080));
 
     await tester.tap(find.text('Open dialog'));

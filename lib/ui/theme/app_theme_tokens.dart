@@ -76,6 +76,8 @@ class AppThemeTokens extends ThemeExtension<AppThemeTokens> {
   final double controlRadius;
   final double contentRadius;
 
+  bool get isGlassTheme => kind == AppTheme.glass && name == '玻璃';
+
   static AppThemeTokens of(BuildContext context) =>
       Theme.of(context).extension<AppThemeTokens>() ?? forTheme(AppTheme.miku);
 
