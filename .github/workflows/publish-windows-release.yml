@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing v* tag to build and publish'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -12,18 +18,26 @@ jobs:
   publish-windows-release:
     name: Build and publish Windows package
     runs-on: windows-latest
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
 
     steps:
       - name: Check out the tagged version
         uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.tag || github.ref_name }}
           fetch-depth: 0
 
-      - name: Require the tag to point to main history
+      - name: Validate the release tag is on main
         shell: bash
         run: |
-          git fetch origin main
-          git merge-base --is-ancestor "$GITHUB_SHA" origin/main || {
+          [[ "$TAG" =~ ^v.+ ]] || {
+            echo "Release tag must start with v."
+            exit 1
+          }
+          git fetch origin main --tags --force
+          TAG_COMMIT=$(git rev-list -n 1 "$TAG")
+          git merge-base --is-ancestor "$TAG_COMMIT" origin/main || {
             echo "Release tags must point to a commit already merged into main."
             exit 1
           }
@@ -46,7 +60,7 @@ jobs:
       - name: Package the complete Windows app
         shell: pwsh
         run: |
-          $tag = "${{ github.ref_name }}"
+          $tag = "$env:TAG"
           $releaseDirectory = "build/windows/x64/runner/Release"
           $archive = "AgentBattery-$tag-windows-x64.zip"
 
@@ -61,7 +75,6 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
         run: |
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$TAG" "$ARCHIVE" --clobber --repo "$GITHUB_REPOSITORY"
