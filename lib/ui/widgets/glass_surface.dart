@@ -29,12 +29,32 @@ class GlassSurface extends StatelessWidget {
     final tokens = AppThemeTokens.of(context);
     final surfaceRadius = radius ?? BorderRadius.circular(tokens.cardRadius);
     final surfaceGradient = gradient ?? tokens.cardGradient;
+    final liquid = tokens.useLiquidGlassSurface;
     final decoration = BoxDecoration(
       gradient: surfaceGradient,
       borderRadius: surfaceRadius,
-      border: border ?? Border.all(color: tokens.outline),
+      border: border ??
+          Border.all(
+            color: liquid
+                ? Colors.white.withValues(alpha: .58)
+                : tokens.outline,
+          ),
       boxShadow: shadowAlpha <= 0
           ? null
+          : liquid
+          ? [
+              BoxShadow(
+                color: tokens.shadow.withValues(alpha: shadowAlpha * 1.35),
+                blurRadius: 34,
+                spreadRadius: -2,
+                offset: const Offset(0, 14),
+              ),
+              BoxShadow(
+                color: Colors.white.withValues(alpha: .24),
+                blurRadius: 3,
+                offset: const Offset(0, -1),
+              ),
+            ]
           : [
               BoxShadow(
                 color: tokens.shadow.withValues(alpha: shadowAlpha),
@@ -48,13 +68,14 @@ class GlassSurface extends StatelessWidget {
         : Padding(padding: padding!, child: child);
     final content = DecoratedBox(
       decoration: decoration,
-      child: tokens.useLiquidGlassSurface
+      child: liquid
           ? Stack(
               fit: StackFit.passthrough,
               children: [
                 Positioned.fill(
                   child: IgnorePointer(
                     child: DecoratedBox(
+                      key: const Key('liquid-glass-refraction'),
                       decoration: BoxDecoration(
                         borderRadius: surfaceRadius,
                         gradient: const LinearGradient(
@@ -62,11 +83,33 @@ class GlassSurface extends StatelessWidget {
                           end: Alignment.bottomRight,
                           colors: [
                             Color(0xaaffffff),
-                            Color(0x33ffffff),
-                            Color(0x55c7eaff),
+                            Color(0x22ffffff),
+                            Color(0x647bdfff),
                           ],
-                          stops: [0, .38, 1],
+                          stops: [0, .35, 1],
                         ),
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      key: const Key('liquid-glass-rim-light'),
+                      decoration: BoxDecoration(
+                        borderRadius: surfaceRadius,
+                        border: Border.all(
+                          color: const Color(0xd9ffffff),
+                          width: 1.15,
+                        ),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x3378d9ff),
+                            blurRadius: 12,
+                            spreadRadius: -5,
+                            offset: Offset(3, 6),
+                          ),
+                        ],
                       ),
                     ),
                   ),

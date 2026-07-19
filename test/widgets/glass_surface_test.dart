@@ -104,6 +104,8 @@ void main() {
             ),
       ),
     );
+    expect(find.byKey(const Key('liquid-glass-refraction')), findsOneWidget);
+    expect(find.byKey(const Key('liquid-glass-rim-light')), findsOneWidget);
     expect(find.byType(BackdropFilter), findsOneWidget);
   });
 
