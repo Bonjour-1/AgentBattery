@@ -123,6 +123,9 @@ void main() {
         final glass = _customTheme.copyWith(
           useGlassSurface: true,
           useLiquidGlassSurface: true,
+          glassTransparency: .76,
+          glassHighlight: .84,
+          glassBlur: GlassBlur.soft,
         );
         final legacy = Map<String, Object?>.from(_customTheme.toJson())
           ..remove('use_glass_surface');

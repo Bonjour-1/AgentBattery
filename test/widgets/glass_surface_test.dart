@@ -96,15 +96,21 @@ void main() {
               (gradient) => gradient.end,
               'end',
               Alignment.bottomRight,
-            )
-            .having(
-              (gradient) => gradient.colors,
-              'colors',
-              const [Color(0x99112233), Color(0x66556677)],
             ),
       ),
     );
-    expect(find.byKey(const Key('liquid-glass-refraction')), findsOneWidget);
+    expect(
+      (
+        tester.widget<DecoratedBox>(
+              find.byKey(const Key('liquid-glass-refraction')),
+            ).decoration
+            as BoxDecoration
+      ).gradient!
+          .colors
+          .first
+          .a,
+      closeTo(.33, .01),
+    );
     expect(find.byKey(const Key('liquid-glass-rim-light')), findsOneWidget);
     expect(find.byType(BackdropFilter), findsOneWidget);
   });

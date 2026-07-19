@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import '../../models/custom_theme.dart';
 import '../theme/app_theme_tokens.dart';
 
 class GlassSurface extends StatelessWidget {
@@ -28,15 +29,27 @@ class GlassSurface extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = AppThemeTokens.of(context);
     final surfaceRadius = radius ?? BorderRadius.circular(tokens.cardRadius);
-    final surfaceGradient = gradient ?? tokens.cardGradient;
     final liquid = tokens.useLiquidGlassSurface;
+    final surfaceGradient = liquid
+        ? _transparentGradient(
+            gradient ?? tokens.cardGradient,
+            tokens.glassTransparency,
+          )
+        : gradient ?? tokens.cardGradient;
+    final highlight = tokens.glassHighlight;
+    final opacity = 1 - .70 * tokens.glassTransparency;
+    final blurSigma = switch (tokens.glassBlur) {
+      GlassBlur.none => 0.0,
+      GlassBlur.light => 10.0,
+      GlassBlur.soft => 20.0,
+    };
     final decoration = BoxDecoration(
       gradient: surfaceGradient,
       borderRadius: surfaceRadius,
       border: border ??
           Border.all(
             color: liquid
-                ? Colors.white.withValues(alpha: .58)
+                ? Colors.white.withValues(alpha: (.22 + .50 * highlight) * opacity)
                 : tokens.outline,
           ),
       boxShadow: shadowAlpha <= 0
@@ -44,13 +57,15 @@ class GlassSurface extends StatelessWidget {
           : liquid
           ? [
               BoxShadow(
-                color: tokens.shadow.withValues(alpha: shadowAlpha * 1.35),
+                color: tokens.shadow.withValues(
+                  alpha: shadowAlpha * (0.60 + .95 * highlight),
+                ),
                 blurRadius: 34,
                 spreadRadius: -2,
                 offset: const Offset(0, 14),
               ),
               BoxShadow(
-                color: Colors.white.withValues(alpha: .24),
+                color: Colors.white.withValues(alpha: .06 + .23 * highlight),
                 blurRadius: 3,
                 offset: const Offset(0, -1),
               ),
@@ -78,15 +93,21 @@ class GlassSurface extends StatelessWidget {
                       key: const Key('liquid-glass-refraction'),
                       decoration: BoxDecoration(
                         borderRadius: surfaceRadius,
-                        gradient: const LinearGradient(
+                        gradient: LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [
-                            Color(0xaaffffff),
-                            Color(0x22ffffff),
-                            Color(0x647bdfff),
+                            Colors.white.withValues(
+                              alpha: .20 * opacity + .58 * highlight * opacity,
+                            ),
+                            Colors.white.withValues(
+                              alpha: (.03 + .10 * highlight) * opacity,
+                            ),
+                            const Color(0xff7bdfff).withValues(
+                              alpha: (.12 + .32 * highlight) * opacity,
+                            ),
                           ],
-                          stops: [0, .35, 1],
+                          stops: const [0, .35, 1],
                         ),
                       ),
                     ),
@@ -99,7 +120,9 @@ class GlassSurface extends StatelessWidget {
                       decoration: BoxDecoration(
                         borderRadius: surfaceRadius,
                         border: Border.all(
-                          color: const Color(0xd9ffffff),
+                          color: Colors.white.withValues(
+                            alpha: (.24 + .62 * highlight) * opacity,
+                          ),
                           width: 1.15,
                         ),
                         boxShadow: const [
@@ -119,13 +142,35 @@ class GlassSurface extends StatelessWidget {
             )
           : childContent,
     );
-    if (!tokens.isGlassTheme || !blur) return content;
+    if (!tokens.isGlassTheme || !blur || blurSigma == 0) return content;
     return ClipRRect(
       borderRadius: surfaceRadius,
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+        filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
         child: content,
       ),
+    );
+  }
+
+  static LinearGradient _transparentGradient(
+    Gradient gradient,
+    double transparency,
+  ) {
+    if (gradient is LinearGradient) {
+      return LinearGradient(
+        begin: gradient.begin,
+        end: gradient.end,
+        colors: [
+          for (final color in gradient.colors)
+            color.withValues(alpha: color.a * (1 - transparency)),
+        ],
+        stops: gradient.stops,
+        tileMode: gradient.tileMode,
+        transform: gradient.transform,
+      );
+    }
+    return LinearGradient(
+      colors: [Colors.white.withValues(alpha: 1 - transparency)],
     );
   }
 }

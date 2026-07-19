@@ -12,6 +12,8 @@ enum BackgroundImageAlignment { center, left, right, top, bottom }
 
 enum GradientDirection { topBottom, leftRight, diagonal }
 
+enum GlassBlur { none, light, soft }
+
 class ThemePalette {
   const ThemePalette({
     required this.primary,
@@ -257,6 +259,9 @@ class CustomTheme {
     this.dashboardDensity = DashboardDensity.comfortable,
     this.useGlassSurface = false,
     this.useLiquidGlassSurface = false,
+    this.glassTransparency = .72,
+    this.glassHighlight = .80,
+    this.glassBlur = GlassBlur.light,
   }) : name = name.trim() {
     _validate();
   }
@@ -284,6 +289,9 @@ class CustomTheme {
   final DashboardDensity dashboardDensity;
   final bool useGlassSurface;
   final bool useLiquidGlassSurface;
+  final double glassTransparency;
+  final double glassHighlight;
+  final GlassBlur glassBlur;
 
   CustomTheme copyWith({
     String? id,
@@ -312,6 +320,9 @@ class CustomTheme {
     DashboardDensity? dashboardDensity,
     bool? useGlassSurface,
     bool? useLiquidGlassSurface,
+    double? glassTransparency,
+    double? glassHighlight,
+    GlassBlur? glassBlur,
     bool clearBackgroundImage = false,
   }) => CustomTheme(
     id: id ?? this.id,
@@ -350,6 +361,9 @@ class CustomTheme {
     useGlassSurface: useGlassSurface ?? this.useGlassSurface,
     useLiquidGlassSurface:
         useLiquidGlassSurface ?? this.useLiquidGlassSurface,
+    glassTransparency: glassTransparency ?? this.glassTransparency,
+    glassHighlight: glassHighlight ?? this.glassHighlight,
+    glassBlur: glassBlur ?? this.glassBlur,
   );
 
   Map<String, Object?> toJson() => {
@@ -380,6 +394,9 @@ class CustomTheme {
     'dashboard_density': dashboardDensity.name,
     'use_glass_surface': useGlassSurface,
     'use_liquid_glass_surface': useLiquidGlassSurface,
+    'glass_transparency': glassTransparency,
+    'glass_highlight': glassHighlight,
+    'glass_blur': glassBlur.name,
   };
 
   factory CustomTheme.fromJson(Map<String, Object?> json) {
@@ -490,6 +507,18 @@ class CustomTheme {
           'use_liquid_glass_surface',
         ),
       },
+      glassTransparency: json.containsKey('glass_transparency')
+          ? readFinite('glass_transparency')
+          : .72,
+      glassHighlight: json.containsKey('glass_highlight')
+          ? readFinite('glass_highlight')
+          : .80,
+      glassBlur: switch (json['glass_blur']) {
+        null || 'light' => GlassBlur.light,
+        'none' => GlassBlur.none,
+        'soft' => GlassBlur.soft,
+        final value => throw ArgumentError.value(value, 'glass_blur'),
+      },
     );
   }
 
@@ -523,7 +552,13 @@ class CustomTheme {
         backgroundImageOpacity > 1 ||
         !shadowOpacity.isFinite ||
         !stageOverlayOpacity.isFinite ||
-        !backgroundImageOpacity.isFinite) {
+        !backgroundImageOpacity.isFinite ||
+        glassTransparency < 0 ||
+        glassTransparency > 1 ||
+        glassHighlight < 0 ||
+        glassHighlight > 1 ||
+        !glassTransparency.isFinite ||
+        !glassHighlight.isFinite) {
       throw ArgumentError('Theme opacities must be between zero and one');
     }
     final gradientColors = [
@@ -574,7 +609,10 @@ class CustomTheme {
       dashboardLayoutMode == other.dashboardLayoutMode &&
       dashboardDensity == other.dashboardDensity &&
       useGlassSurface == other.useGlassSurface &&
-      useLiquidGlassSurface == other.useLiquidGlassSurface;
+      useLiquidGlassSurface == other.useLiquidGlassSurface &&
+      glassTransparency == other.glassTransparency &&
+      glassHighlight == other.glassHighlight &&
+      glassBlur == other.glassBlur;
 
   @override
   int get hashCode => Object.hashAll([
@@ -601,6 +639,9 @@ class CustomTheme {
     dashboardDensity,
     useGlassSurface,
     useLiquidGlassSurface,
+    glassTransparency,
+    glassHighlight,
+    glassBlur,
   ]);
 }
 

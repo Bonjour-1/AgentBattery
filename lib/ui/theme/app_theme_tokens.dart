@@ -52,6 +52,9 @@ class AppThemeTokens extends ThemeExtension<AppThemeTokens> {
     required this.contentRadius,
     this.useGlassSurface = false,
     this.useLiquidGlassSurface = false,
+    this.glassTransparency = .72,
+    this.glassHighlight = .80,
+    this.glassBlur = GlassBlur.light,
   });
 
   final AppTheme kind;
@@ -79,6 +82,9 @@ class AppThemeTokens extends ThemeExtension<AppThemeTokens> {
   final double contentRadius;
   final bool useGlassSurface;
   final bool useLiquidGlassSurface;
+  final double glassTransparency;
+  final double glassHighlight;
+  final GlassBlur glassBlur;
 
   bool get isGlassTheme => useGlassSurface;
 
@@ -261,6 +267,9 @@ class AppThemeTokens extends ThemeExtension<AppThemeTokens> {
       name: theme.name,
       useGlassSurface: theme.useGlassSurface,
       useLiquidGlassSurface: theme.useLiquidGlassSurface,
+      glassTransparency: theme.glassTransparency,
+      glassHighlight: theme.glassHighlight,
+      glassBlur: theme.glassBlur,
       stageGradient: _customGradient(
         palette.stage,
         theme.stageGradientSecondary,
