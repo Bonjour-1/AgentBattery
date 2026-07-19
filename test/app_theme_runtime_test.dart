@@ -30,8 +30,10 @@ const _palette = ThemePalette(
   primary: 0xff102030,
   secondary: 0xff406080,
   stage: 0xff203040,
-  content: 0xfff0f1f2,
-  card: 0xfffafbfc,
+  content: 0xff202122,
+  pageBackground: 0xff303132,
+  card: 0xff404142,
+  dialogBackground: 0xff505152,
   cardAlt: 0xffe0e1e2,
   text: 0xff101112,
   mutedText: 0xff505152,
@@ -109,6 +111,69 @@ void main() {
       );
       expect(controller.resolvedTheme.layout, WindowLayoutPolicy.compact);
       expect(find.byKey(const Key('custom-stage-wrapper')), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'custom dashboard keeps page and data-panel backgrounds independent',
+    (tester) async {
+      final controller = await _controller(
+        _theme(
+          id: 'a2b2c3d4-e5f6-4789-8123-456789abcdef',
+          layout: ThemeLayout.dashboard,
+        ),
+      );
+      await tester.pumpWidget(
+        AgentBatteryApp(controller: controller, initializeServices: false),
+      );
+      addTearDown(() => tester.pumpWidget(const SizedBox()));
+
+      final page = tester.widget<ColoredBox>(
+        find.byKey(const Key('custom-dashboard-page-background')),
+      );
+      expect(page.color, const Color(0xff303132));
+      final materialTheme = Theme.of(tester.element(find.byType(HomeScreen)));
+      expect(materialTheme.scaffoldBackgroundColor, const Color(0xff303132));
+      expect(
+        materialTheme.appBarTheme.backgroundColor,
+        const Color(0xff303132),
+      );
+      final panel = tester.widget<Container>(
+        find.byKey(const Key('custom-dashboard-standard')),
+      );
+      final gradient = (panel.decoration! as BoxDecoration).gradient!;
+      expect(gradient.colors.first, const Color(0xff202122));
+      expect(
+        gradient.colors.first,
+        isNot(materialTheme.scaffoldBackgroundColor),
+      );
+    },
+  );
+
+  testWidgets(
+    'custom card and dialog backgrounds remain independent at runtime',
+    (tester) async {
+      final controller = await _controller(
+        _theme(
+          id: 'a3b2c3d4-e5f6-4789-8123-456789abcdef',
+          layout: ThemeLayout.dashboard,
+        ),
+      );
+      await tester.pumpWidget(
+        AgentBatteryApp(controller: controller, initializeServices: false),
+      );
+      addTearDown(() => tester.pumpWidget(const SizedBox()));
+
+      final materialTheme = Theme.of(tester.element(find.byType(HomeScreen)));
+      expect(materialTheme.cardTheme.color, const Color(0xff404142));
+      expect(
+        materialTheme.dialogTheme.backgroundColor,
+        const Color(0xff505152),
+      );
+      expect(
+        materialTheme.cardTheme.color,
+        isNot(materialTheme.dialogTheme.backgroundColor),
+      );
     },
   );
 
@@ -225,38 +290,39 @@ void main() {
     expect(find.byKey(const Key('miku-stage-wide')), findsOneWidget);
   });
 
-  testWidgets('saved custom theme appears in the switch menu and can be applied', (
-    tester,
-  ) async {
-    final theme = _theme(
-      id: 'c1b2c3d4-e5f6-4789-8123-456789abcdef',
-      layout: ThemeLayout.stage,
-    );
-    SharedPreferences.setMockInitialValues({
-      _stateKey: jsonEncode(
-        AppSnapshot(
-          customThemes: [theme],
-          themeReference: ThemeReference.builtin(AppTheme.miku),
-        ).toJson(),
-      ),
-    });
-    final controller = BatteryController(
-      storage: StorageService(keyStore: _MemorySecureKeyStore()),
-      api: ApiClient(),
-    );
-    await controller.initialize(refreshOnStart: false);
-    await tester.pumpWidget(
-      AgentBatteryApp(controller: controller, initializeServices: false),
-    );
-    addTearDown(() => tester.pumpWidget(const SizedBox()));
+  testWidgets(
+    'saved custom theme appears in the switch menu and can be applied',
+    (tester) async {
+      final theme = _theme(
+        id: 'c1b2c3d4-e5f6-4789-8123-456789abcdef',
+        layout: ThemeLayout.stage,
+      );
+      SharedPreferences.setMockInitialValues({
+        _stateKey: jsonEncode(
+          AppSnapshot(
+            customThemes: [theme],
+            themeReference: ThemeReference.builtin(AppTheme.miku),
+          ).toJson(),
+        ),
+      });
+      final controller = BatteryController(
+        storage: StorageService(keyStore: _MemorySecureKeyStore()),
+        api: ApiClient(),
+      );
+      await controller.initialize(refreshOnStart: false);
+      await tester.pumpWidget(
+        AgentBatteryApp(controller: controller, initializeServices: false),
+      );
+      addTearDown(() => tester.pumpWidget(const SizedBox()));
 
-    await tester.tap(find.byTooltip('切换主题'));
-    await tester.pumpAndSettle();
-    expect(find.text('自定义主题'), findsOneWidget);
-    expect(find.text('Runtime'), findsOneWidget);
+      await tester.tap(find.byTooltip('切换主题'));
+      await tester.pumpAndSettle();
+      expect(find.text('自定义主题'), findsOneWidget);
+      expect(find.text('Runtime'), findsOneWidget);
 
-    await tester.tap(find.text('Runtime'));
-    await tester.pumpAndSettle();
-    expect(controller.themeReference, ThemeReference.custom(theme.id));
-  });
+      await tester.tap(find.text('Runtime'));
+      await tester.pumpAndSettle();
+      expect(controller.themeReference, ThemeReference.custom(theme.id));
+    },
+  );
 }

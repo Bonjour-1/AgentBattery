@@ -272,6 +272,74 @@ void main() {
     },
   );
 
+  testWidgets(
+    'edits page and dialog backgrounds independently in the live preview',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1600, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final controller = await _controller();
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        _host(controller, ThemeStudioScreen(controller: controller)),
+      );
+      await tester.tap(find.byKey(const Key('theme-studio-new-button')));
+      await tester.pump();
+
+      expect(find.text('页面背景'), findsOneWidget);
+      expect(find.text('对话框背景'), findsOneWidget);
+      final contentBefore = _previewGradient(
+        tester,
+        const Key('theme-preview-content-gradient'),
+      ).colors.first;
+      final cardBefore = _previewGradient(
+        tester,
+        const Key('theme-preview-card-gradient'),
+      ).colors.first;
+
+      await _setThemeColor(
+        tester,
+        pickerKey: 'theme-color-picker-theme-color-page-background',
+        hexKey: 'theme-color-page-background-hex',
+        value: 'FF112233',
+      );
+      await _setThemeColor(
+        tester,
+        pickerKey: 'theme-color-picker-theme-color-dialog-background',
+        hexKey: 'theme-color-dialog-background-hex',
+        value: 'FF445566',
+      );
+
+      expect(
+        _previewColor(tester, const Key('theme-preview-page-background')),
+        const Color(0xff112233),
+      );
+      expect(
+        _previewColor(tester, const Key('theme-preview-dialog-background')),
+        const Color(0xff445566),
+      );
+      expect(
+        _previewGradient(
+          tester,
+          const Key('theme-preview-content-gradient'),
+        ).colors.first,
+        contentBefore,
+      );
+      expect(
+        _previewGradient(
+          tester,
+          const Key('theme-preview-card-gradient'),
+        ).colors.first,
+        cardBefore,
+      );
+
+      await tester.tap(find.byKey(const Key('theme-studio-save-apply-button')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      final saved = controller.customThemes.single;
+      expect(saved.palette.pageBackground, 0xff112233);
+      expect(saved.palette.dialogBackground, 0xff445566);
+    },
+  );
   testWidgets('preview switches widths without exceptions', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1600, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -299,6 +367,71 @@ void main() {
     await tester.tap(find.byKey(const Key('theme-studio-wide-preview-button')));
     await tester.pump();
   }, skip: true);
+
+  testWidgets('style presets preserve their previous surface colors', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1600, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final controller = await _controller();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      _host(controller, ThemeStudioScreen(controller: controller)),
+    );
+    await tester.tap(find.byKey(const Key('theme-studio-new-button')));
+    await tester.pump();
+
+    const cases = [
+      (
+        key: Key('theme-preset-focus'),
+        page: Color(0xffe2e8f0),
+        dialog: Color(0xffffffff),
+      ),
+      (
+        key: Key('theme-preset-glass'),
+        page: Color(0xffe0e7ff),
+        dialog: Color(0xd9ffffff),
+      ),
+      (
+        key: Key('theme-preset-night'),
+        page: Color(0xff18181b),
+        dialog: Color(0xff27272a),
+      ),
+      (
+        key: Key('theme-preset-fresh'),
+        page: Color(0xffecfdf5),
+        dialog: Color(0xffffffff),
+      ),
+    ];
+
+    for (final preset in cases) {
+      tester.widget<OutlinedButton>(find.byKey(preset.key)).onPressed!();
+      await tester.pump();
+
+      expect(
+        _previewColor(tester, const Key('theme-preview-page-background')),
+        preset.page,
+      );
+      expect(
+        _previewGradient(
+          tester,
+          const Key('theme-preview-content-gradient'),
+        ).colors.first,
+        preset.page,
+      );
+      expect(
+        _previewColor(tester, const Key('theme-preview-dialog-background')),
+        preset.dialog,
+      );
+      expect(
+        _previewGradient(
+          tester,
+          const Key('theme-preview-card-gradient'),
+        ).colors.first,
+        preset.dialog,
+      );
+    }
+  });
 
   testWidgets(
     'quick focus preset updates the draft, preview status, and leaves builtin tokens unchanged',
@@ -633,33 +766,86 @@ void main() {
   _uiControlsTests();
 }
 
+Future<void> _setThemeColor(
+  WidgetTester tester, {
+  required String pickerKey,
+  required String hexKey,
+  required String value,
+}) async {
+  await tester.ensureVisible(find.byKey(Key(pickerKey)));
+  await tester.tap(find.byKey(Key(pickerKey)));
+  await tester.pump();
+  await tester.tap(find.text('高级输入（十六进制）'));
+  await tester.pump();
+  await tester.enterText(find.byKey(Key(hexKey)), value);
+  await tester.pump();
+  await tester.tap(find.text('完成'));
+  await tester.pump();
+}
+
+LinearGradient _previewGradient(WidgetTester tester, Key key) {
+  final preview = tester.widget<DecoratedBox>(find.byKey(key));
+  return (preview.decoration as BoxDecoration).gradient! as LinearGradient;
+}
+
+Color? _previewColor(WidgetTester tester, Key key) {
+  final preview = tester.widget<DecoratedBox>(find.byKey(key));
+  return (preview.decoration as BoxDecoration).color;
+}
+
 void _uiControlsTests() {
-  testWidgets('color cards open HSV picker and advanced hex updates preview', (tester) async {
+  testWidgets('color cards open HSV picker and advanced hex updates preview', (
+    tester,
+  ) async {
     await tester.binding.setSurfaceSize(const Size(1600, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final controller = await _controller();
     addTearDown(controller.dispose);
-    await tester.pumpWidget(_host(controller, ThemeStudioScreen(controller: controller)));
+    await tester.pumpWidget(
+      _host(controller, ThemeStudioScreen(controller: controller)),
+    );
     await tester.tap(find.byKey(const Key('theme-studio-new-button')));
     await tester.pump();
     expect(find.byKey(const Key('theme-color-primary')), findsNothing);
-    final picker = find.byKey(const Key('theme-color-picker-theme-color-primary'));
+    final picker = find.byKey(
+      const Key('theme-color-picker-theme-color-primary'),
+    );
     expect(picker, findsOneWidget);
     await tester.tap(picker);
     await tester.pump();
-    for (final key in const ['theme-color-hue-slider', 'theme-color-saturation-slider', 'theme-color-value-slider', 'theme-color-opacity-slider']) {
+    for (final key in const [
+      'theme-color-hue-slider',
+      'theme-color-saturation-slider',
+      'theme-color-value-slider',
+      'theme-color-opacity-slider',
+    ]) {
       expect(find.byKey(Key(key)), findsOneWidget);
     }
-    tester.widget<Slider>(find.byKey(const Key('theme-color-hue-slider'))).onChanged!(.5);
+    tester
+        .widget<Slider>(find.byKey(const Key('theme-color-hue-slider')))
+        .onChanged!(.5);
     await tester.pump();
-    final swatch = tester.widget<DecoratedBox>(find.byKey(const Key('theme-preview-primary-swatch')));
-    expect((swatch.decoration as BoxDecoration).color, isNot(const Color(0xff39c5bb)));
+    final swatch = tester.widget<DecoratedBox>(
+      find.byKey(const Key('theme-preview-primary-swatch')),
+    );
+    expect(
+      (swatch.decoration as BoxDecoration).color,
+      isNot(const Color(0xff39c5bb)),
+    );
     await tester.tap(find.text('高级输入（十六进制）'));
     await tester.pump();
-    await tester.enterText(find.byKey(const Key('theme-color-primary-hex')), 'FF112233');
+    await tester.enterText(
+      find.byKey(const Key('theme-color-primary-hex')),
+      'FF112233',
+    );
     await tester.pump();
-    final updated = tester.widget<DecoratedBox>(find.byKey(const Key('theme-preview-primary-swatch')));
-    expect((updated.decoration as BoxDecoration).color, const Color(0xff112233));
+    final updated = tester.widget<DecoratedBox>(
+      find.byKey(const Key('theme-preview-primary-swatch')),
+    );
+    expect(
+      (updated.decoration as BoxDecoration).color,
+      const Color(0xff112233),
+    );
   });
 
   testWidgets('radius and opacity sliders update preview', (tester) async {
@@ -667,13 +853,24 @@ void _uiControlsTests() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final controller = await _controller();
     addTearDown(controller.dispose);
-    await tester.pumpWidget(_host(controller, ThemeStudioScreen(controller: controller)));
+    await tester.pumpWidget(
+      _host(controller, ThemeStudioScreen(controller: controller)),
+    );
     await tester.tap(find.byKey(const Key('theme-studio-new-button')));
     await tester.pump();
-    tester.widget<Slider>(find.byKey(const Key('theme-card-radius-slider'))).onChanged!(37);
-    tester.widget<Slider>(find.byKey(const Key('theme-shadow-opacity-slider'))).onChanged!(.73);
+    tester
+        .widget<Slider>(find.byKey(const Key('theme-card-radius-slider')))
+        .onChanged!(37);
+    tester
+        .widget<Slider>(find.byKey(const Key('theme-shadow-opacity-slider')))
+        .onChanged!(.73);
     await tester.pump();
-    final content = tester.widget<DecoratedBox>(find.byKey(const Key('theme-preview-content-gradient')));
-    expect((content.decoration as BoxDecoration).boxShadow!.single.color.a, closeTo(.73, .01));
+    final content = tester.widget<DecoratedBox>(
+      find.byKey(const Key('theme-preview-content-gradient')),
+    );
+    expect(
+      (content.decoration as BoxDecoration).boxShadow!.single.color.a,
+      closeTo(.73, .01),
+    );
   });
 }

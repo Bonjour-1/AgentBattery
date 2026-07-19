@@ -18,7 +18,9 @@ class ThemePalette {
     required this.secondary,
     required this.stage,
     required this.content,
+    required this.pageBackground,
     required this.card,
+    required this.dialogBackground,
     required this.cardAlt,
     required this.text,
     required this.mutedText,
@@ -32,7 +34,9 @@ class ThemePalette {
        assert(secondary >= 0 && secondary <= 0xffffffff),
        assert(stage >= 0 && stage <= 0xffffffff),
        assert(content >= 0 && content <= 0xffffffff),
+       assert(pageBackground >= 0 && pageBackground <= 0xffffffff),
        assert(card >= 0 && card <= 0xffffffff),
+       assert(dialogBackground >= 0 && dialogBackground <= 0xffffffff),
        assert(cardAlt >= 0 && cardAlt <= 0xffffffff),
        assert(text >= 0 && text <= 0xffffffff),
        assert(mutedText >= 0 && mutedText <= 0xffffffff),
@@ -47,7 +51,9 @@ class ThemePalette {
   final int secondary;
   final int stage;
   final int content;
+  final int pageBackground;
   final int card;
+  final int dialogBackground;
   final int cardAlt;
   final int text;
   final int mutedText;
@@ -63,7 +69,9 @@ class ThemePalette {
     int? secondary,
     int? stage,
     int? content,
+    int? pageBackground,
     int? card,
+    int? dialogBackground,
     int? cardAlt,
     int? text,
     int? mutedText,
@@ -79,7 +87,9 @@ class ThemePalette {
       secondary: secondary ?? this.secondary,
       stage: stage ?? this.stage,
       content: content ?? this.content,
+      pageBackground: pageBackground ?? this.pageBackground,
       card: card ?? this.card,
+      dialogBackground: dialogBackground ?? this.dialogBackground,
       cardAlt: cardAlt ?? this.cardAlt,
       text: text ?? this.text,
       mutedText: mutedText ?? this.mutedText,
@@ -99,7 +109,9 @@ class ThemePalette {
     required this.secondary,
     required this.stage,
     required this.content,
+    required this.pageBackground,
     required this.card,
+    required this.dialogBackground,
     required this.cardAlt,
     required this.text,
     required this.mutedText,
@@ -116,7 +128,9 @@ class ThemePalette {
     'secondary': secondary,
     'stage': stage,
     'content': content,
+    'page_background': pageBackground,
     'card': card,
+    'dialog_background': dialogBackground,
     'card_alt': cardAlt,
     'text': text,
     'muted_text': mutedText,
@@ -137,12 +151,23 @@ class ThemePalette {
       return value;
     }
 
+    final hasPageBackground = json.containsKey('page_background');
+    final hasDialogBackground = json.containsKey('dialog_background');
+    if (hasPageBackground != hasDialogBackground) {
+      throw ArgumentError(
+        'page_background and dialog_background must be provided together',
+      );
+    }
+    final content = read('content');
+    final card = read('card');
     final result = ThemePalette._unchecked(
       primary: read('primary'),
       secondary: read('secondary'),
       stage: read('stage'),
-      content: read('content'),
-      card: read('card'),
+      content: content,
+      pageBackground: hasPageBackground ? read('page_background') : content,
+      card: card,
+      dialogBackground: hasDialogBackground ? read('dialog_background') : card,
       cardAlt: read('card_alt'),
       text: read('text'),
       mutedText: read('muted_text'),
@@ -163,7 +188,9 @@ class ThemePalette {
       secondary,
       stage,
       content,
+      pageBackground,
       card,
+      dialogBackground,
       cardAlt,
       text,
       mutedText,
@@ -188,7 +215,9 @@ class ThemePalette {
       secondary == other.secondary &&
       stage == other.stage &&
       content == other.content &&
+      pageBackground == other.pageBackground &&
       card == other.card &&
+      dialogBackground == other.dialogBackground &&
       cardAlt == other.cardAlt &&
       text == other.text &&
       mutedText == other.mutedText &&
@@ -308,7 +337,8 @@ class CustomTheme {
     backgroundImageFit: backgroundImageFit ?? this.backgroundImageFit,
     backgroundImageAlignment:
         backgroundImageAlignment ?? this.backgroundImageAlignment,
-    backgroundImageOpacity: backgroundImageOpacity ?? this.backgroundImageOpacity,
+    backgroundImageOpacity:
+        backgroundImageOpacity ?? this.backgroundImageOpacity,
     dashboardLayoutMode: dashboardLayoutMode ?? this.dashboardLayoutMode,
     dashboardDensity: dashboardDensity ?? this.dashboardDensity,
   );
@@ -426,7 +456,10 @@ class CustomTheme {
       dashboardLayoutMode: switch (json['dashboard_layout_mode']) {
         null || 'standard' => DashboardLayoutMode.standard,
         'focus' => DashboardLayoutMode.focus,
-        final value => throw ArgumentError.value(value, 'dashboard_layout_mode'),
+        final value => throw ArgumentError.value(
+          value,
+          'dashboard_layout_mode',
+        ),
       },
       dashboardDensity: switch (json['dashboard_density']) {
         null || 'comfortable' => DashboardDensity.comfortable,

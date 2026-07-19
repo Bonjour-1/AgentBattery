@@ -1,4 +1,4 @@
-import 'package:agent_battery_flutter/models/app_snapshot.dart';
+import 'package:agent_battery_flutter/models/custom_theme.dart';
 import 'package:agent_battery_flutter/models/provider_view_state.dart';
 import 'package:agent_battery_flutter/ui/theme/app_theme_tokens.dart';
 import 'package:agent_battery_flutter/ui/widgets/provider_card.dart';
@@ -8,6 +8,38 @@ import 'package:flutter_test/flutter_test.dart';
 Widget _host(ProviderCard card) => MaterialApp(
   theme: AppThemeTokens.forTheme(AppTheme.cute).materialTheme(),
   home: Scaffold(body: SizedBox(width: 700, child: card)),
+);
+const _splitPalette = ThemePalette(
+  primary: 0xff102030,
+  secondary: 0xff203040,
+  stage: 0xff304050,
+  content: 0xff405060,
+  pageBackground: 0xff506070,
+  card: 0xff607080,
+  dialogBackground: 0xff708090,
+  cardAlt: 0xff8090a0,
+  text: 0xff101112,
+  mutedText: 0xff505152,
+  onStage: 0xffffffff,
+  outline: 0xffa0a1a2,
+  success: 0xff208060,
+  error: 0xffb03040,
+  statusIdle: 0xff707172,
+  shadow: 0xff000000,
+);
+
+final _splitTokens = AppThemeTokens.custom(
+  CustomTheme(
+    id: 'f1b2c3d4-e5f6-4789-8123-456789abcdef',
+    name: 'Split surfaces',
+    layout: ThemeLayout.dashboard,
+    palette: _splitPalette,
+    cardRadius: 18,
+    controlRadius: 12,
+    contentRadius: 24,
+    shadowOpacity: .3,
+    stageOverlayOpacity: .4,
+  ),
 );
 
 ProviderViewState _provider({
@@ -29,6 +61,62 @@ ProviderViewState _provider({
 );
 
 void main() {
+  testWidgets('keeps provider card and dialog surfaces independent', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: _splitTokens.materialTheme(),
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => Column(
+              children: [
+                ProviderCard(provider: _provider(), accent: Colors.teal),
+                TextButton(
+                  onPressed: () => showDialog<void>(
+                    context: context,
+                    builder: (_) => const AlertDialog(
+                      key: Key('split-surface-dialog'),
+                      title: Text('Surface dialog'),
+                    ),
+                  ),
+                  child: const Text('Open dialog'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final cardSurface = find.descendant(
+      of: find.byType(ProviderCard),
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is Container &&
+            widget.decoration is BoxDecoration &&
+            (widget.decoration! as BoxDecoration).gradient != null,
+      ),
+    );
+    final card = tester.widget<Container>(cardSurface);
+    final cardGradient = (card.decoration! as BoxDecoration).gradient!;
+    expect(cardGradient.colors.first, const Color(0xff607080));
+
+    await tester.tap(find.text('Open dialog'));
+    await tester.pumpAndSettle();
+    final dialogMaterial = find.descendant(
+      of: find.byKey(const Key('split-surface-dialog')),
+      matching: find.byWidgetPredicate(
+        (widget) => widget is Material && widget.type == MaterialType.card,
+      ),
+    );
+    expect(
+      tester.widget<Material>(dialogMaterial).color,
+      const Color(0xff708090),
+    );
+    expect(cardGradient.colors.first, isNot(const Color(0xff708090)));
+  });
+
   testWidgets('shows recharge button only for a valid recharge URL', (
     tester,
   ) async {
@@ -77,38 +165,39 @@ void main() {
     expect(find.text('余额偏低'), findsNothing);
   });
 
-  testWidgets('exposes independent usage edit actions without changing recharge', (
-    tester,
-  ) async {
-    var dailyEdits = 0;
-    var monthlyEdits = 0;
-    await tester.pumpWidget(
-      _host(
-        ProviderCard(
-          provider: _provider(dailyUsage: 1.2, monthlyUsage: 3.4),
-          accent: Colors.teal,
-          rechargeUrl: 'https://example.com/billing',
-          onEditDailyUsage: () => dailyEdits++,
-          onEditMonthlyUsage: () => monthlyEdits++,
+  testWidgets(
+    'exposes independent usage edit actions without changing recharge',
+    (tester) async {
+      var dailyEdits = 0;
+      var monthlyEdits = 0;
+      await tester.pumpWidget(
+        _host(
+          ProviderCard(
+            provider: _provider(dailyUsage: 1.2, monthlyUsage: 3.4),
+            accent: Colors.teal,
+            rechargeUrl: 'https://example.com/billing',
+            onEditDailyUsage: () => dailyEdits++,
+            onEditMonthlyUsage: () => monthlyEdits++,
+          ),
         ),
-      ),
-    );
+      );
 
-    expect(find.byTooltip('修改今日用量'), findsOneWidget);
-    expect(find.byTooltip('修改本月用量'), findsOneWidget);
-    expect(find.text('前往充值'), findsOneWidget);
-    expect(
-      tester.getCenter(find.text('前往充值')).dx,
-      lessThan(tester.getCenter(find.text('已连接')).dx),
-    );
+      expect(find.byTooltip('修改今日用量'), findsOneWidget);
+      expect(find.byTooltip('修改本月用量'), findsOneWidget);
+      expect(find.text('前往充值'), findsOneWidget);
+      expect(
+        tester.getCenter(find.text('前往充值')).dx,
+        lessThan(tester.getCenter(find.text('已连接')).dx),
+      );
 
-    await tester.tap(find.byTooltip('修改今日用量'));
-    expect(dailyEdits, 1);
-    expect(monthlyEdits, 0);
-    await tester.tap(find.byTooltip('修改本月用量'));
-    expect(dailyEdits, 1);
-    expect(monthlyEdits, 1);
-  });
+      await tester.tap(find.byTooltip('修改今日用量'));
+      expect(dailyEdits, 1);
+      expect(monthlyEdits, 0);
+      await tester.tap(find.byTooltip('修改本月用量'));
+      expect(dailyEdits, 1);
+      expect(monthlyEdits, 1);
+    },
+  );
 
   testWidgets(
     'uses display-policy usage values and shows dashes for hidden metrics',
@@ -143,21 +232,22 @@ void main() {
     },
   );
 
-  testWidgets('keeps usage edit actions available when balance is unavailable', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      _host(
-        ProviderCard(
-          provider: _provider(balance: null),
-          accent: Colors.teal,
-          onEditDailyUsage: () {},
-          onEditMonthlyUsage: () {},
+  testWidgets(
+    'keeps usage edit actions available when balance is unavailable',
+    (tester) async {
+      await tester.pumpWidget(
+        _host(
+          ProviderCard(
+            provider: _provider(balance: null),
+            accent: Colors.teal,
+            onEditDailyUsage: () {},
+            onEditMonthlyUsage: () {},
+          ),
         ),
-      ),
-    );
+      );
 
-    expect(find.byTooltip('修改今日用量'), findsOneWidget);
-    expect(find.byTooltip('修改本月用量'), findsOneWidget);
-  });
+      expect(find.byTooltip('修改今日用量'), findsOneWidget);
+      expect(find.byTooltip('修改本月用量'), findsOneWidget);
+    },
+  );
 }
