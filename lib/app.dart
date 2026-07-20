@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -33,6 +34,7 @@ class _AgentBatteryAppState extends State<AgentBatteryApp> with WindowListener {
   late final TrayService tray = widget.trayService ?? TrayService();
   ThemeReference? _lastAppliedThemeReference;
   WindowLayoutPolicy? _lastAppliedLayout;
+  Future<void> _windowLayoutUpdate = Future.value();
 
   @override
   void initState() {
@@ -46,7 +48,9 @@ class _AgentBatteryAppState extends State<AgentBatteryApp> with WindowListener {
 
   void _changed() {
     if (widget.initializeServices && Platform.isWindows) {
-      _applyThemeWindowLayout();
+      _windowLayoutUpdate = _windowLayoutUpdate.then(
+        (_) => _applyThemeWindowLayout(),
+      );
     }
     if (mounted) setState(() {});
   }

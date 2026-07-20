@@ -66,7 +66,36 @@ void main() {
   });
 
 
-  test('keeps the height and uses the dashboard aspect ratio across layouts', () {
+  test('enforces the target minimum height during a transition', () {
+    final size = WindowLayoutPolicy.transitionSize(
+      currentSize: const Size(680, 500),
+      target: WindowLayoutPolicy.mikuStage,
+    );
+
+    expect(size.height, 680);
+    expect(size.width, closeTo(1181.05, .01));
+  });
+
+  test('enforces the target minimum width during a transition', () {
+    final size = WindowLayoutPolicy.transitionSize(
+      currentSize: const Size(1000, 10),
+      target: WindowLayoutPolicy.compact,
+    );
+
+    expect(size, const Size(620, 720));
+  });
+
+  test('does not transition between equivalent stage layouts', () {
+    expect(
+      WindowLayoutPolicy.shouldTransition(
+        previous: WindowLayoutPolicy.mikuStage,
+        target: WindowLayoutPolicy.mitaStage,
+      ),
+      isFalse,
+    );
+  });
+
+  test('keeps height and uses the dashboard aspect ratio across layouts', () {
     final size = WindowLayoutPolicy.transitionSize(
       currentSize: const Size(1320, 760),
       target: WindowLayoutPolicy.compact,
