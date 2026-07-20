@@ -33,4 +33,46 @@ void main() {
       expect(policy.minimumSize, const Size(620, 720));
     }
   });
+
+  test('recognizes layouts with the same default window policy', () {
+    expect(
+      WindowLayoutPolicy.mikuStage.isEquivalentTo(WindowLayoutPolicy.mitaStage),
+      isTrue,
+    );
+    expect(
+      WindowLayoutPolicy.compact.isEquivalentTo(WindowLayoutPolicy.mikuStage),
+      isFalse,
+    );
+  });
+
+  test('keeps a window that already meets the next theme minimum size', () {
+    expect(
+      WindowLayoutPolicy.requiredSize(
+        currentSize: const Size(1320, 760),
+        minimumSize: WindowLayoutPolicy.compact.minimumSize,
+      ),
+      isNull,
+    );
+  });
+
+  test('transitions from the initial compact window to an active stage layout', () {
+    expect(
+      WindowLayoutPolicy.shouldTransition(
+        previous: null,
+        target: WindowLayoutPolicy.mikuStage,
+      ),
+      isTrue,
+    );
+  });
+
+
+  test('keeps the height and uses the dashboard aspect ratio across layouts', () {
+    final size = WindowLayoutPolicy.transitionSize(
+      currentSize: const Size(1320, 760),
+      target: WindowLayoutPolicy.compact,
+    );
+
+    expect(size.height, 760);
+    expect(size.width, 646);
+  });
 }

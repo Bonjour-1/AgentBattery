@@ -8,6 +8,7 @@ import 'services/api_client.dart';
 import 'services/storage_service.dart';
 import 'services/tray_service.dart';
 import 'state/battery_controller.dart';
+import 'ui/window_layout_policy.dart';
 import 'ui/screens/home_screen.dart';
 
 class AgentBatteryApp extends StatefulWidget {
@@ -31,6 +32,7 @@ class _AgentBatteryAppState extends State<AgentBatteryApp> with WindowListener {
       BatteryController(storage: StorageService(), api: ApiClient());
   late final TrayService tray = widget.trayService ?? TrayService();
   ThemeReference? _lastAppliedThemeReference;
+  WindowLayoutPolicy? _lastAppliedLayout;
 
   @override
   void initState() {
@@ -54,8 +56,19 @@ class _AgentBatteryAppState extends State<AgentBatteryApp> with WindowListener {
     if (_lastAppliedThemeReference == reference) return;
     _lastAppliedThemeReference = reference;
     final policy = controller.resolvedTheme.layout;
+    final previousLayout = _lastAppliedLayout;
+    _lastAppliedLayout = policy;
     await windowManager.setMinimumSize(policy.minimumSize);
-    await windowManager.setSize(policy.size);
+    if (!WindowLayoutPolicy.shouldTransition(
+      previous: previousLayout,
+      target: policy,
+    )) {
+      return;
+    }
+    final currentSize = await windowManager.getSize();
+    await windowManager.setSize(
+      WindowLayoutPolicy.transitionSize(currentSize: currentSize, target: policy),
+    );
   }
 
   Future<void> _exitApp() => tray.exitApp();
