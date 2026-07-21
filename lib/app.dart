@@ -2,9 +2,12 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'models/custom_theme.dart';
+import 'services/fullscreen_window_service.dart';
+import 'services/window_show_hotkey_service.dart';
 import 'services/api_client.dart';
 import 'services/storage_service.dart';
 import 'services/tray_service.dart';
@@ -17,10 +20,14 @@ class AgentBatteryApp extends StatefulWidget {
     super.key,
     this.controller,
     this.trayService,
+    this.windowShowHotkeyService,
+    this.fullscreenWindowService,
     this.initializeServices = true,
   });
   final BatteryController? controller;
   final TrayService? trayService;
+  final WindowShowHotkeyService? windowShowHotkeyService;
+  final FullscreenWindowService? fullscreenWindowService;
   final bool initializeServices;
 
   @override
@@ -32,6 +39,10 @@ class _AgentBatteryAppState extends State<AgentBatteryApp> with WindowListener {
       widget.controller ??
       BatteryController(storage: StorageService(), api: ApiClient());
   late final TrayService tray = widget.trayService ?? TrayService();
+  late final WindowShowHotkeyService windowShowHotkey =
+      widget.windowShowHotkeyService ?? WindowShowHotkeyService();
+  late final FullscreenWindowService fullscreenWindow =
+      widget.fullscreenWindowService ?? FullscreenWindowService();
   ThemeReference? _lastAppliedThemeReference;
   WindowLayoutPolicy? _lastAppliedLayout;
   Future<void> _windowLayoutUpdate = Future.value();
@@ -42,15 +53,26 @@ class _AgentBatteryAppState extends State<AgentBatteryApp> with WindowListener {
     controller.addListener(_changed);
     if (!widget.initializeServices) return;
     windowManager.addListener(this);
-    controller.initialize();
+    controller.initialize().then((_) => _registerWindowShowHotkey());
     tray.initialize();
   }
 
+  Future<bool> _registerWindowShowHotkey([String? shortcut]) => windowShowHotkey
+      .replace(shortcut ?? controller.windowShowHotkey, () async {
+        await windowManager.show();
+        await windowManager.focus();
+      });
+
+  Future<void> _toggleFullscreen() => fullscreenWindow.toggle();
+
+  Future<void> _exitFullscreen() => fullscreenWindow.exit();
+
   void _changed() {
     if (widget.initializeServices && Platform.isWindows) {
-      _windowLayoutUpdate = _windowLayoutUpdate.then(
-        (_) => _applyThemeWindowLayout(),
-      );
+      _windowLayoutUpdate = _windowLayoutUpdate.then((_) async {
+        await _applyThemeWindowLayout();
+        await _registerWindowShowHotkey();
+      });
     }
     if (mounted) setState(() {});
   }
@@ -71,7 +93,10 @@ class _AgentBatteryAppState extends State<AgentBatteryApp> with WindowListener {
     }
     final currentSize = await windowManager.getSize();
     await windowManager.setSize(
-      WindowLayoutPolicy.transitionSize(currentSize: currentSize, target: policy),
+      WindowLayoutPolicy.transitionSize(
+        currentSize: currentSize,
+        target: policy,
+      ),
     );
   }
 
@@ -89,6 +114,7 @@ class _AgentBatteryAppState extends State<AgentBatteryApp> with WindowListener {
     if (widget.initializeServices) windowManager.removeListener(this);
     controller.removeListener(_changed);
     controller.dispose();
+    if (widget.initializeServices) windowShowHotkey.dispose();
     if (widget.initializeServices) tray.disposeTray();
     super.dispose();
   }
@@ -100,7 +126,20 @@ class _AgentBatteryAppState extends State<AgentBatteryApp> with WindowListener {
       debugShowCheckedModeBanner: false,
       title: 'AgentBattery',
       theme: tokens.materialTheme(),
-      home: HomeScreen(controller: controller, onExitRequested: _exitApp),
+      home: CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.f11): _toggleFullscreen,
+          const SingleActivator(LogicalKeyboardKey.escape): _exitFullscreen,
+        },
+        child: Focus(
+          autofocus: true,
+          child: HomeScreen(
+            controller: controller,
+            onExitRequested: _exitApp,
+            onWindowShowHotkeyRegistration: _registerWindowShowHotkey,
+          ),
+        ),
+      ),
     );
   }
 }

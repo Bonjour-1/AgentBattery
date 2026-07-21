@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:agent_battery_flutter/models/provider_config.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:hotkey_manager/hotkey_manager.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/custom_theme.dart';
@@ -16,9 +18,15 @@ import 'provider_management_screen.dart';
 import 'theme_studio_screen.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key, required this.controller, this.onExitRequested});
+  const HomeScreen({
+    super.key,
+    required this.controller,
+    this.onExitRequested,
+    this.onWindowShowHotkeyRegistration,
+  });
   final BatteryController controller;
   final VoidCallback? onExitRequested;
+  final Future<bool> Function(String shortcut)? onWindowShowHotkeyRegistration;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -58,12 +66,14 @@ class _HomeScreenState extends State<HomeScreen> {
         return _CharacterStage(
           controller: widget.controller,
           onExitRequested: widget.onExitRequested,
+          onWindowShowHotkeyRegistration: widget.onWindowShowHotkeyRegistration,
           theme: builtinTheme!,
         );
       }
       return _CustomStage(
         controller: widget.controller,
         onExitRequested: widget.onExitRequested,
+        onWindowShowHotkeyRegistration: widget.onWindowShowHotkeyRegistration,
         background: _backgroundFuture,
       );
     }
@@ -119,6 +129,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   _Header(
                     controller: widget.controller,
                     onExitRequested: widget.onExitRequested,
+                    onWindowShowHotkeyRegistration:
+                        widget.onWindowShowHotkeyRegistration,
                     onPageBackground: true,
                   ),
                   Expanded(
@@ -205,6 +217,113 @@ Future<void> _showAutoRefreshSettings(
   WidgetsBinding.instance.addPostFrameCallback((_) => seconds.dispose());
 }
 
+Future<void> _showWindowShowHotkeySettings(
+  BuildContext context,
+  BatteryController controller,
+  Future<bool> Function(String shortcut)? register,
+) async {
+  var shortcut = controller.windowShowHotkey;
+  var errorText = '';
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (context, setDialogState) => AlertDialog(
+        title: const Text('窗口唤出快捷键'),
+        content: SizedBox(
+          width: 360,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('窗口隐藏或未聚焦时，也可用此全局快捷键唤出。'),
+              const SizedBox(height: 16),
+              Focus(
+                autofocus: true,
+                child: SizedBox(
+                  height: 64,
+                  child: HotKeyRecorder(
+                    initalHotKey: _hotKeyFromShortcut(shortcut),
+                    onHotKeyRecorded: (hotKey) => setDialogState(
+                      () => shortcut = _shortcutFromHotKey(hotKey),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text('当前：${_shortcutLabel(shortcut)}'),
+              if (errorText.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  errorText,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              if (register != null && !await register(shortcut)) {
+                setDialogState(() => errorText = '该组合键已被系统或其他程序占用');
+                return;
+              }
+              await controller.setWindowShowHotkey(shortcut);
+              if (dialogContext.mounted) Navigator.pop(dialogContext);
+            },
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+HotKey _hotKeyFromShortcut(String shortcut) {
+  final parts = shortcut.toLowerCase().split('+');
+  final key = PhysicalKeyboardKey.knownPhysicalKeys.firstWhere(
+    (candidate) => candidate.keyLabel.toLowerCase() == parts.last,
+  );
+  return HotKey(
+    key: key,
+    modifiers: [
+      if (parts.contains('ctrl')) HotKeyModifier.control,
+      if (parts.contains('alt')) HotKeyModifier.alt,
+      if (parts.contains('shift')) HotKeyModifier.shift,
+      if (parts.contains('win')) HotKeyModifier.meta,
+    ],
+    scope: HotKeyScope.system,
+  );
+}
+
+String _shortcutFromHotKey(HotKey hotKey) {
+  final modifiers = hotKey.modifiers ?? const <HotKeyModifier>[];
+  return [
+    if (modifiers.contains(HotKeyModifier.control)) 'ctrl',
+    if (modifiers.contains(HotKeyModifier.alt)) 'alt',
+    if (modifiers.contains(HotKeyModifier.shift)) 'shift',
+    if (modifiers.contains(HotKeyModifier.meta)) 'win',
+    hotKey.physicalKey.keyLabel.toLowerCase(),
+  ].join('+');
+}
+
+String _shortcutLabel(String shortcut) => shortcut
+    .split('+')
+    .map(
+      (part) => switch (part) {
+        'ctrl' => 'Ctrl',
+        'alt' => 'Alt',
+        'shift' => 'Shift',
+        'win' => 'Win',
+        _ => part.toUpperCase(),
+      },
+    )
+    .join(' + ');
+
 Future<void> _showManualUsageDialog(
   BuildContext context,
   BatteryController controller,
@@ -268,11 +387,13 @@ class _CustomStage extends StatelessWidget {
   const _CustomStage({
     required this.controller,
     required this.onExitRequested,
+    required this.onWindowShowHotkeyRegistration,
     required this.background,
   });
 
   final BatteryController controller;
   final VoidCallback? onExitRequested;
+  final Future<bool> Function(String shortcut)? onWindowShowHotkeyRegistration;
   final Future<File?>? background;
 
   @override
@@ -333,6 +454,8 @@ class _CustomStage extends StatelessWidget {
                       _Header(
                         controller: controller,
                         onExitRequested: onExitRequested,
+                        onWindowShowHotkeyRegistration:
+                            onWindowShowHotkeyRegistration,
                       ),
                       Expanded(
                         child: _Content(
@@ -372,11 +495,13 @@ class _CharacterStage extends StatelessWidget {
   const _CharacterStage({
     required this.controller,
     required this.onExitRequested,
+    required this.onWindowShowHotkeyRegistration,
     required this.theme,
   });
 
   final BatteryController controller;
   final VoidCallback? onExitRequested;
+  final Future<bool> Function(String shortcut)? onWindowShowHotkeyRegistration;
   final AppTheme theme;
 
   @override
@@ -389,7 +514,11 @@ class _CharacterStage extends StatelessWidget {
           final nailong = theme == AppTheme.nailong;
           final content = Column(
             children: [
-              _Header(controller: controller, onExitRequested: onExitRequested),
+              _Header(
+                controller: controller,
+                onExitRequested: onExitRequested,
+                onWindowShowHotkeyRegistration: onWindowShowHotkeyRegistration,
+              ),
               Expanded(child: _Content(controller: controller, stage: true)),
             ],
           );
@@ -507,10 +636,12 @@ class _Header extends StatelessWidget {
   const _Header({
     required this.controller,
     this.onExitRequested,
+    this.onWindowShowHotkeyRegistration,
     this.onPageBackground = false,
   });
   final BatteryController controller;
   final VoidCallback? onExitRequested;
+  final Future<bool> Function(String shortcut)? onWindowShowHotkeyRegistration;
   final bool onPageBackground;
 
   @override
@@ -583,6 +714,15 @@ class _Header extends StatelessWidget {
               ? Icons.autorenew_rounded
               : Icons.autorenew_outlined,
         ),
+      ),
+      IconButton.filledTonal(
+        onPressed: () => _showWindowShowHotkeySettings(
+          context,
+          controller,
+          onWindowShowHotkeyRegistration,
+        ),
+        tooltip: '窗口唤出快捷键',
+        icon: const Icon(Icons.keyboard_rounded),
       ),
       IconButton.filledTonal(
         onPressed: controller.refreshing ? null : controller.refresh,
