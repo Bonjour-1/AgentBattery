@@ -66,6 +66,7 @@ class BatteryController extends ChangeNotifier {
 
   bool get autoRefreshEnabled => _snapshot.autoRefreshEnabled;
   int get autoRefreshIntervalSeconds => _snapshot.autoRefreshIntervalSeconds;
+  String get windowShowHotkey => _snapshot.windowShowHotkey;
   List<ProviderConfig> get configs => List.unmodifiable(
     List<ProviderConfig>.from(_snapshot.providerConfigs)
       ..sort((a, b) => a.order.compareTo(b.order)),
@@ -695,6 +696,12 @@ class BatteryController extends ChangeNotifier {
       autoRefreshIntervalSeconds: normalizedInterval,
     );
     _configureAutoRefresh();
+    await _persist();
+    notifyListeners();
+  }
+
+  Future<void> setWindowShowHotkey(String shortcut) async {
+    _snapshot = _snapshot.copyWith(windowShowHotkey: shortcut);
     await _persist();
     notifyListeners();
   }

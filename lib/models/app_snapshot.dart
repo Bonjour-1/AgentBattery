@@ -13,6 +13,7 @@ class AppSnapshot {
     this.customThemes = const [],
     this.autoRefreshEnabled = false,
     this.autoRefreshIntervalSeconds = 60,
+    this.windowShowHotkey = 'ctrl+alt+b',
   }) : _legacyTheme = theme,
        _storedThemeReference = themeReference;
 
@@ -25,6 +26,7 @@ class AppSnapshot {
   final List<CustomTheme> customThemes;
   final bool autoRefreshEnabled;
   final int autoRefreshIntervalSeconds;
+  final String windowShowHotkey;
 
   /// Compatibility bridge for existing runtime code until Task 2 resolves
   /// custom themes into tokens. A custom reference intentionally falls back.
@@ -38,6 +40,7 @@ class AppSnapshot {
     List<CustomTheme>? customThemes,
     bool? autoRefreshEnabled,
     int? autoRefreshIntervalSeconds,
+    String? windowShowHotkey,
   }) => AppSnapshot(
     providers: providers ?? this.providers,
     providerConfigs: providerConfigs ?? this.providerConfigs,
@@ -49,6 +52,7 @@ class AppSnapshot {
     autoRefreshEnabled: autoRefreshEnabled ?? this.autoRefreshEnabled,
     autoRefreshIntervalSeconds:
         autoRefreshIntervalSeconds ?? this.autoRefreshIntervalSeconds,
+    windowShowHotkey: windowShowHotkey ?? this.windowShowHotkey,
   );
 
   Map<String, Object?> toJson() => {
@@ -60,6 +64,7 @@ class AppSnapshot {
     if (themeReference.isBuiltin) 'theme': themeReference.builtinTheme!.name,
     'auto_refresh_enabled': autoRefreshEnabled,
     'auto_refresh_interval_seconds': autoRefreshIntervalSeconds,
+    'window_show_hotkey': windowShowHotkey,
   };
 
   factory AppSnapshot.fromJson(Map<String, Object?> json) {
@@ -110,6 +115,9 @@ class AppSnapshot {
       customThemes: customThemes,
       autoRefreshEnabled: json['auto_refresh_enabled'] == true,
       autoRefreshIntervalSeconds: interval,
+      windowShowHotkey: json['window_show_hotkey'] is String
+          ? json['window_show_hotkey'] as String
+          : 'ctrl+alt+b',
     );
   }
 
