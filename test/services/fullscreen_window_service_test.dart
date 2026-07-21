@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 class FakeFullscreenWindowPlatform implements FullscreenWindowPlatform {
   final calls = <String>[];
   bool fullScreen = false;
+  bool maximized = false;
 
   @override
   Future<void> setFullScreen(bool value) async {
@@ -13,6 +14,21 @@ class FakeFullscreenWindowPlatform implements FullscreenWindowPlatform {
 
   @override
   Future<bool> isFullScreen() async => fullScreen;
+
+  @override
+  Future<bool> isMaximized() async => maximized;
+
+  @override
+  Future<void> maximize() async {
+    calls.add('maximize');
+    maximized = true;
+  }
+
+  @override
+  Future<void> unmaximize() async {
+    calls.add('unmaximize');
+    maximized = false;
+  }
 }
 
 void main() {
@@ -25,6 +41,24 @@ void main() {
       await service.toggle();
 
       expect(platform.calls, ['fullscreen:true']);
+    },
+  );
+
+  test(
+    'restores a maximized window before native fullscreen and maximizes it again on exit',
+    () async {
+      final platform = FakeFullscreenWindowPlatform()..maximized = true;
+      final service = FullscreenWindowService(platform: platform);
+
+      await service.toggle();
+      await service.exit();
+
+      expect(platform.calls, [
+        'unmaximize',
+        'fullscreen:true',
+        'fullscreen:false',
+        'maximize',
+      ]);
     },
   );
 
