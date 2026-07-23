@@ -39,12 +39,32 @@ class MetricTile extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    value,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: accent ?? tokens.text,
+                  child: AnimatedSwitcher(
+                    duration:
+                        (MediaQuery.maybeOf(context)?.disableAnimations ??
+                            false)
+                        ? Duration.zero
+                        : const Duration(milliseconds: 220),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    transitionBuilder: (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0, .08),
+                          end: Offset.zero,
+                        ).animate(animation),
+                        child: child,
+                      ),
+                    ),
+                    child: Text(
+                      value,
+                      key: ValueKey(value),
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        color: accent ?? tokens.text,
+                      ),
                     ),
                   ),
                 ),

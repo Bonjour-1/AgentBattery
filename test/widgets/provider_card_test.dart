@@ -3,6 +3,7 @@ import 'package:agent_battery_flutter/models/provider_view_state.dart';
 import 'package:agent_battery_flutter/ui/theme/app_theme_tokens.dart';
 import 'package:agent_battery_flutter/ui/widgets/glass_surface.dart';
 import 'package:agent_battery_flutter/ui/widgets/provider_card.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -246,4 +247,62 @@ void main() {
       expect(find.byTooltip('修改本月用量'), findsOneWidget);
     },
   );
+
+  testWidgets('animates card elevation on pointer hover', (tester) async {
+    await tester.pumpWidget(
+      _host(ProviderCard(provider: _provider(), accent: Colors.teal)),
+    );
+
+    final surface = find.byKey(const Key('provider-card-motion-surface'));
+    expect(surface, findsOneWidget);
+    expect(
+      find.ancestor(of: surface, matching: find.byType(MouseRegion)),
+      findsOneWidget,
+    );
+
+    final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await pointer.addPointer(location: const Offset(-10, -10));
+    await pointer.moveTo(tester.getCenter(surface));
+    await tester.pump(const Duration(milliseconds: 180));
+
+    final motionSurface = tester.widget<AnimatedContainer>(surface);
+    expect(motionSurface.transform, isNotNull);
+    expect(motionSurface.transform!.getTranslation().y, closeTo(-3, .01));
+  });
+
+  testWidgets('animates metric value replacement without changing layout', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(ProviderCard(provider: _provider(), accent: Colors.teal)),
+    );
+
+    expect(find.byType(AnimatedSwitcher), findsNWidgets(3));
+  });
+
+  testWidgets('shows a dedicated refresh status animation seam', (
+    tester,
+  ) async {
+    const refreshingProvider = ProviderViewState(
+      id: 'refreshing',
+      name: 'Refreshing Provider',
+      balance: 10,
+      dailyUsage: 1,
+      monthlyUsage: 2,
+      dailyDisplayUsage: 1,
+      monthlyDisplayUsage: 2,
+      status: ConnectionStatus.refreshing,
+      message: '正在更新',
+    );
+    await tester.pumpWidget(
+      _host(ProviderCard(provider: refreshingProvider, accent: Colors.teal)),
+    );
+
+    final dot = find.byKey(const Key('provider-card-refresh-status-dot'));
+    expect(dot, findsOneWidget);
+    expect(
+      find.ancestor(of: dot, matching: find.byType(AnimatedBuilder)),
+      findsAtLeastNWidgets(1),
+    );
+  });
 }

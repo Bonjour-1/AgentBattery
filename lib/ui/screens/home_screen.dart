@@ -14,6 +14,7 @@ import '../theme/app_theme_tokens.dart';
 import '../window_layout_policy.dart';
 import '../widgets/glass_surface.dart';
 import '../widgets/provider_card.dart';
+import 'provider_detail_screen.dart';
 import 'provider_management_screen.dart';
 import 'theme_studio_screen.dart';
 
@@ -958,25 +959,36 @@ class _Content extends StatelessWidget {
             ),
           ),
         for (final entry in controller.enabledConfigs.indexed) ...[
-          ProviderCard(
-            provider: controller.providers[entry.$2.id]!,
-            accent: Color(entry.$2.colorValue),
-            rechargeUrl: entry.$2.rechargeUrl,
-            lowBalanceThreshold: entry.$2.lowBalanceThreshold,
-            onRecharge: () => _openRechargePage(context, entry.$2),
-            onEditDailyUsage: () => _showManualUsageDialog(
-              context,
-              controller,
-              entry.$2,
-              UsagePeriod.daily,
-              controller.providers[entry.$2.id]!.dailyUsage,
-            ),
-            onEditMonthlyUsage: () => _showManualUsageDialog(
-              context,
-              controller,
-              entry.$2,
-              UsagePeriod.monthly,
-              controller.providers[entry.$2.id]!.monthlyUsage,
+          Hero(
+            tag: 'provider-card-${entry.$2.id}',
+            child: ProviderCard(
+              provider: controller.providers[entry.$2.id]!,
+              accent: Color(entry.$2.colorValue),
+              rechargeUrl: entry.$2.rechargeUrl,
+              lowBalanceThreshold: entry.$2.lowBalanceThreshold,
+              onRecharge: () => _openRechargePage(context, entry.$2),
+              onEditDailyUsage: () => _showManualUsageDialog(
+                context,
+                controller,
+                entry.$2,
+                UsagePeriod.daily,
+                controller.providers[entry.$2.id]!.dailyUsage,
+              ),
+              onEditMonthlyUsage: () => _showManualUsageDialog(
+                context,
+                controller,
+                entry.$2,
+                UsagePeriod.monthly,
+                controller.providers[entry.$2.id]!.monthlyUsage,
+              ),
+              onOpen: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ProviderDetailScreen(
+                    config: entry.$2,
+                    provider: controller.providers[entry.$2.id]!,
+                  ),
+                ),
+              ),
             ),
           ),
           SizedBox(height: dashboard.providerGap),

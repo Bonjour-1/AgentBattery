@@ -137,4 +137,20 @@ void main() {
     expect(find.text('请输入有限且不小于 0 的金额'), findsOneWidget);
     expect(controller.providers['test']!.dailyUsage, 1.2);
   });
+
+  testWidgets('opens a provider detail route from the dashboard card', (
+    tester,
+  ) async {
+    final controller = await _controller();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(_host(controller));
+
+    await tester.tap(find.text('测试供应商'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(find.text('服务商详情'), findsOneWidget);
+    expect(find.text('https://example.com/v1'), findsOneWidget);
+    expect(find.byKey(const Key('provider-detail-hero-test')), findsOneWidget);
+  });
 }

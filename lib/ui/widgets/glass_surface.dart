@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import '../../models/custom_theme.dart';
 import '../theme/app_theme_tokens.dart';
 
-class GlassSurface extends StatelessWidget {
+class GlassSurface extends StatefulWidget {
   const GlassSurface({
     super.key,
     required this.child,
@@ -26,16 +26,46 @@ class GlassSurface extends StatelessWidget {
   final double shadowAlpha;
 
   @override
+  State<GlassSurface> createState() => _GlassSurfaceState();
+}
+
+class _GlassSurfaceState extends State<GlassSurface> {
+  Alignment _pointerAlignment = Alignment.topLeft;
+  bool _pointerInside = false;
+
+  void _updatePointer(PointerEvent event, BuildContext context) {
+    final renderBox = context.findRenderObject() as RenderBox?;
+    if (renderBox == null || renderBox.size.isEmpty) return;
+    final local = renderBox.globalToLocal(event.position);
+    final x = (local.dx / renderBox.size.width * 2 - 1).clamp(-1.0, 1.0);
+    final y = (local.dy / renderBox.size.height * 2 - 1).clamp(-1.0, 1.0);
+    setState(() {
+      _pointerInside = true;
+      _pointerAlignment = Alignment(x, y);
+    });
+  }
+
+  void _resetPointer() {
+    setState(() {
+      _pointerInside = false;
+      _pointerAlignment = Alignment.topLeft;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final tokens = AppThemeTokens.of(context);
-    final surfaceRadius = radius ?? BorderRadius.circular(tokens.cardRadius);
+    final surfaceRadius =
+        widget.radius ?? BorderRadius.circular(tokens.cardRadius);
     final liquid = tokens.useLiquidGlassSurface;
+    final reduceMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
     final surfaceGradient = liquid
         ? _transparentGradient(
-            gradient ?? tokens.cardGradient,
+            widget.gradient ?? tokens.cardGradient,
             tokens.glassTransparency,
           )
-        : gradient ?? tokens.cardGradient;
+        : widget.gradient ?? tokens.cardGradient;
     final highlight = tokens.glassHighlight;
     final opacity = 1 - .70 * tokens.glassTransparency;
     final blurSigma = switch (tokens.glassBlur) {
@@ -46,19 +76,22 @@ class GlassSurface extends StatelessWidget {
     final decoration = BoxDecoration(
       gradient: surfaceGradient,
       borderRadius: surfaceRadius,
-      border: border ??
+      border:
+          widget.border ??
           Border.all(
             color: liquid
-                ? Colors.white.withValues(alpha: (.22 + .50 * highlight) * opacity)
+                ? Colors.white.withValues(
+                    alpha: (.22 + .50 * highlight) * opacity,
+                  )
                 : tokens.outline,
           ),
-      boxShadow: shadowAlpha <= 0
+      boxShadow: widget.shadowAlpha <= 0
           ? null
           : liquid
           ? [
               BoxShadow(
                 color: tokens.shadow.withValues(
-                  alpha: shadowAlpha * (0.60 + .95 * highlight),
+                  alpha: widget.shadowAlpha * (0.60 + .95 * highlight),
                 ),
                 blurRadius: 34,
                 spreadRadius: -2,
@@ -72,77 +105,110 @@ class GlassSurface extends StatelessWidget {
             ]
           : [
               BoxShadow(
-                color: tokens.shadow.withValues(alpha: shadowAlpha),
+                color: tokens.shadow.withValues(alpha: widget.shadowAlpha),
                 blurRadius: 24,
                 offset: const Offset(0, 8),
               ),
             ],
     );
-    final childContent = padding == null
-        ? child
-        : Padding(padding: padding!, child: child);
+    final childContent = widget.padding == null
+        ? widget.child
+        : Padding(padding: widget.padding!, child: widget.child);
     final content = DecoratedBox(
       decoration: decoration,
       child: liquid
-          ? Stack(
-              fit: StackFit.passthrough,
-              children: [
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: DecoratedBox(
-                      key: const Key('liquid-glass-refraction'),
-                      decoration: BoxDecoration(
-                        borderRadius: surfaceRadius,
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Colors.white.withValues(
-                              alpha: .20 * opacity + .58 * highlight * opacity,
+          ? MouseRegion(
+              onHover: reduceMotion
+                  ? null
+                  : (event) => _updatePointer(event, context),
+              onExit: reduceMotion ? null : (_) => _resetPointer(),
+              child: Stack(
+                fit: StackFit.passthrough,
+                children: [
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: DecoratedBox(
+                        key: const Key('liquid-glass-refraction'),
+                        decoration: BoxDecoration(
+                          borderRadius: surfaceRadius,
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Colors.white.withValues(
+                                alpha:
+                                    .20 * opacity + .58 * highlight * opacity,
+                              ),
+                              Colors.white.withValues(
+                                alpha: (.03 + .10 * highlight) * opacity,
+                              ),
+                              const Color(0xff7bdfff).withValues(
+                                alpha: (.12 + .32 * highlight) * opacity,
+                              ),
+                            ],
+                            stops: const [0, .35, 1],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: AnimatedContainer(
+                        key: const Key('liquid-glass-pointer-reflection'),
+                        duration: reduceMotion
+                            ? Duration.zero
+                            : const Duration(milliseconds: 180),
+                        curve: Curves.easeOutCubic,
+                        decoration: BoxDecoration(
+                          borderRadius: surfaceRadius,
+                          gradient: RadialGradient(
+                            center: _pointerAlignment,
+                            radius: _pointerInside ? 1.15 : 1.35,
+                            colors: [
+                              Colors.white.withValues(
+                                alpha: (.16 + .22 * highlight) * opacity,
+                              ),
+                              Colors.white.withValues(alpha: .02 * opacity),
+                              Colors.transparent,
+                            ],
+                            stops: const [0, .28, 1],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: DecoratedBox(
+                        key: const Key('liquid-glass-rim-light'),
+                        decoration: BoxDecoration(
+                          borderRadius: surfaceRadius,
+                          border: Border.all(
+                            color: Colors.white.withValues(
+                              alpha: (.24 + .62 * highlight) * opacity,
                             ),
-                            Colors.white.withValues(
-                              alpha: (.03 + .10 * highlight) * opacity,
-                            ),
-                            const Color(0xff7bdfff).withValues(
-                              alpha: (.12 + .32 * highlight) * opacity,
+                            width: 1.15,
+                          ),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x3378d9ff),
+                              blurRadius: 12,
+                              spreadRadius: -5,
+                              offset: Offset(3, 6),
                             ),
                           ],
-                          stops: const [0, .35, 1],
                         ),
                       ),
                     ),
                   ),
-                ),
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: DecoratedBox(
-                      key: const Key('liquid-glass-rim-light'),
-                      decoration: BoxDecoration(
-                        borderRadius: surfaceRadius,
-                        border: Border.all(
-                          color: Colors.white.withValues(
-                            alpha: (.24 + .62 * highlight) * opacity,
-                          ),
-                          width: 1.15,
-                        ),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x3378d9ff),
-                            blurRadius: 12,
-                            spreadRadius: -5,
-                            offset: Offset(3, 6),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                childContent,
-              ],
+                  childContent,
+                ],
+              ),
             )
           : childContent,
     );
-    if (!tokens.isGlassTheme || !blur || blurSigma == 0) return content;
+    if (!tokens.isGlassTheme || !widget.blur || blurSigma == 0) return content;
     return ClipRRect(
       borderRadius: surfaceRadius,
       child: BackdropFilter(
