@@ -126,6 +126,11 @@ class _AgentBatteryAppState extends State<AgentBatteryApp> with WindowListener {
       debugShowCheckedModeBanner: false,
       title: 'AgentBattery',
       theme: tokens.materialTheme(),
+      themeAnimationDuration:
+          MediaQuery.maybeOf(context)?.disableAnimations ?? false
+          ? Duration.zero
+          : const Duration(milliseconds: 320),
+      themeAnimationCurve: Curves.easeInOutCubicEmphasized,
       home: CallbackShortcuts(
         bindings: {
           const SingleActivator(LogicalKeyboardKey.f11): _toggleFullscreen,
