@@ -10,6 +10,7 @@ import 'package:agent_battery_flutter/services/secure_key_store.dart';
 import 'package:agent_battery_flutter/services/storage_service.dart';
 import 'package:agent_battery_flutter/services/theme_background_store.dart';
 import 'package:agent_battery_flutter/state/battery_controller.dart';
+import 'package:agent_battery_flutter/themes/scenery_gift_theme.dart';
 import 'package:agent_battery_flutter/ui/theme/app_theme_tokens.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -93,6 +94,7 @@ final _customTheme = CustomTheme(
 Future<BatteryController> _controller(
   AppSnapshot snapshot, {
   _FakeThemeBackgroundStore? backgrounds,
+  SceneryGiftThemeInstaller? sceneryGiftThemeInstaller,
 }) async {
   SharedPreferences.setMockInitialValues({
     _stateKey: jsonEncode(snapshot.toJson()),
@@ -101,12 +103,67 @@ Future<BatteryController> _controller(
     storage: StorageService(keyStore: _MemorySecureKeyStore()),
     api: ApiClient(),
     backgrounds: backgrounds ?? _FakeThemeBackgroundStore(),
+    sceneryGiftThemeInstaller:
+        sceneryGiftThemeInstaller ??
+        SceneryGiftThemeInstaller(
+          writeAsset: () async =>
+              throw StateError('gift asset disabled in this test'),
+        ),
   );
-  await controller.initialize(refreshOnStart: false);
+  await controller.initialize(
+    refreshOnStart: false,
+    installSceneryGiftTheme: sceneryGiftThemeInstaller != null,
+  );
   return controller;
 }
 
 void main() {
+  test(
+    'adds the scenery gift theme during initialization without changing the active theme',
+    () async {
+      final controller = await _controller(
+        const AppSnapshot(theme: AppTheme.cute),
+        sceneryGiftThemeInstaller: SceneryGiftThemeInstaller(
+          writeAsset: () async {
+            final file = File(
+              '${Directory.systemTemp.path}${Platform.pathSeparator}scenery.png',
+            );
+            await file.writeAsBytes([1, 2, 3]);
+            return file;
+          },
+        ),
+      );
+      addTearDown(controller.dispose);
+
+      final scenery = controller.customThemes.singleWhere(
+        (theme) => theme.id == '1158ab5d-f579-499e-b32a-ba020fd8c895',
+      );
+
+      expect(scenery.name, '风景');
+      expect(scenery.backgroundImageFileName, isNotNull);
+      expect(
+        controller.themeReference,
+        const ThemeReference.builtin(AppTheme.cute),
+      );
+    },
+  );
+
+  test(
+    'does not overwrite an existing scenery gift theme during initialization',
+    () async {
+      final savedScenery = _customTheme.copyWith(
+        id: '1158ab5d-f579-499e-b32a-ba020fd8c895',
+        name: '我的风景',
+      );
+      final controller = await _controller(
+        AppSnapshot(customThemes: [savedScenery]),
+      );
+      addTearDown(controller.dispose);
+
+      expect(controller.customThemes, [savedScenery]);
+    },
+  );
+
   test(
     'copies a builtin preset into an independently editable UUID draft',
     () async {
