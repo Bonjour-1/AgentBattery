@@ -15,6 +15,7 @@ import '../services/hermes_provider_importer.dart';
 import '../services/storage_service.dart';
 import '../services/theme_background_store.dart';
 import '../services/theme_package_service.dart';
+import '../themes/scenery_gift_theme.dart';
 import '../ui/theme/app_theme_tokens.dart';
 import '../ui/theme/resolved_theme.dart';
 import '../ui/window_layout_policy.dart';
@@ -25,11 +26,14 @@ class BatteryController extends ChangeNotifier {
     required ApiClient api,
     ThemeBackgroundService? backgrounds,
     ThemePackageService? themePackages,
+    SceneryGiftThemeInstaller? sceneryGiftThemeInstaller,
   }) : this._withBackgroundService(
          storage: storage,
          api: api,
          backgrounds: backgrounds ?? ThemeBackgroundStore(),
          themePackages: themePackages ?? ThemePackageService(),
+         sceneryGiftThemeInstaller:
+             sceneryGiftThemeInstaller ?? SceneryGiftThemeInstaller(),
        );
 
   BatteryController._withBackgroundService({
@@ -37,12 +41,14 @@ class BatteryController extends ChangeNotifier {
     required this._api,
     required this._backgrounds,
     required this._themePackages,
+    required this._sceneryGiftThemeInstaller,
   });
 
   final StorageService _storage;
   final ApiClient _api;
   final ThemeBackgroundService _backgrounds;
   final ThemePackageService _themePackages;
+  final SceneryGiftThemeInstaller _sceneryGiftThemeInstaller;
   AppSnapshot _snapshot = const AppSnapshot();
   bool loading = true;
   bool refreshing = false;
@@ -89,13 +95,32 @@ class BatteryController extends ChangeNotifier {
     (sum, item) => sum + (item.monthlyDisplayUsage ?? 0),
   );
 
-  Future<void> initialize({bool refreshOnStart = true}) async {
+  Future<void> initialize({
+    bool refreshOnStart = true,
+    bool installSceneryGiftTheme = false,
+  }) async {
     _snapshot = await _storage.load();
+    if (installSceneryGiftTheme) await _installSceneryGiftTheme();
     _rebuildViews();
     loading = false;
     notifyListeners();
     _configureAutoRefresh();
     if (refreshOnStart) unawaited(refresh());
+  }
+
+  Future<void> _installSceneryGiftTheme() async {
+    if (_snapshot.customThemes.any((theme) => theme.id == sceneryGiftThemeId)) {
+      return;
+    }
+    try {
+      final installed = await _sceneryGiftThemeInstaller.install(_backgrounds);
+      _snapshot = _snapshot.copyWith(
+        customThemes: [..._snapshot.customThemes, installed],
+      );
+      await _persist();
+    } catch (_) {
+      // A gift resource must never prevent the dashboard from opening.
+    }
   }
 
   void _rebuildViews() {

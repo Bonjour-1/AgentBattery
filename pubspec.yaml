@@ -71,6 +71,7 @@ flutter:
     - assets/images/miku_stage_background.png
     - assets/images/mita_colored_pencil_dashboard_background.png
     - assets/images/nailong_dashboard_background.png
+    - assets/themes/scenery.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

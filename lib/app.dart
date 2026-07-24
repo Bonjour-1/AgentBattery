@@ -53,7 +53,9 @@ class _AgentBatteryAppState extends State<AgentBatteryApp> with WindowListener {
     controller.addListener(_changed);
     if (!widget.initializeServices) return;
     windowManager.addListener(this);
-    controller.initialize().then((_) => _registerWindowShowHotkey());
+    controller
+        .initialize(installSceneryGiftTheme: true)
+        .then((_) => _registerWindowShowHotkey());
     tray.initialize();
   }
 
