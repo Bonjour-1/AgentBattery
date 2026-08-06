@@ -29,6 +29,13 @@ class CurlBashImporter {
     final headers = <String, String>{};
     String? cookie;
 
+    void setUrl(String value) {
+      if (url != null) {
+        throw const FormatException('Only one URL is supported.');
+      }
+      url = value;
+    }
+
     try {
       for (var index = 1; index < tokens.length; index++) {
         final token = tokens[index];
@@ -43,6 +50,8 @@ class CurlBashImporter {
           case '-X':
           case '--request':
             explicitMethod = argument().toUpperCase();
+          case '--url':
+            setUrl(argument());
           case '-H':
           case '--header':
             final header = argument();
@@ -55,6 +64,12 @@ class CurlBashImporter {
             headers[header.substring(0, separator).trim()] = header
                 .substring(separator + 1)
                 .trimLeft();
+          case '-A':
+          case '--user-agent':
+            headers['User-Agent'] = argument();
+          case '-e':
+          case '--referer':
+            headers['Referer'] = argument();
           case '-b':
           case '--cookie':
             cookie = argument();
@@ -62,20 +77,37 @@ class CurlBashImporter {
           case '--data':
           case '--data-raw':
           case '--data-binary':
+          case '--data-ascii':
+          case '--data-urlencode':
             if (body != null) {
               throw const FormatException(
                 'Only one request body option is supported.',
               );
             }
             body = argument();
+          case '-L':
+          case '--location':
+          case '--compressed':
+          case '--globoff':
+          case '-g':
+          case '--insecure':
+          case '-k':
+          case '--http1.1':
+          case '--http2':
+          case '--http3':
+          case '--silent':
+          case '-s':
+            break;
+          case '--connect-timeout':
+          case '--max-time':
+          case '--retry':
+          case '--proxy':
+            argument();
           default:
             if (token.startsWith('-')) {
               throw FormatException('Unsupported curl option: $token');
             }
-            if (url != null) {
-              throw const FormatException('Only one URL is supported.');
-            }
-            url = token;
+            setUrl(token);
         }
       }
     } on FormatException catch (error) {
@@ -153,6 +185,13 @@ class CurlBashImporter {
       queryTemplate: query,
       headersTemplate: templateHeaders,
       bodyTemplate: templateBody,
+      sourceCurl: _redactedCurlSource(
+        method: explicitMethod,
+        urlTemplate: baseUri.toString(),
+        queryTemplate: query,
+        headersTemplate: templateHeaders,
+        bodyTemplate: templateBody,
+      ),
     );
     return CurlParseResult.success(
       CurlImportDraft(
@@ -274,6 +313,35 @@ String _uriWithoutQueryAndFragment(Uri uri) {
   final authority = uri.hasPort ? '${uri.host}:${uri.port}' : uri.host;
   return '${uri.scheme}://$authority${uri.path}';
 }
+
+String _redactedCurlSource({
+  required String? method,
+  required String urlTemplate,
+  required Map<String, String> queryTemplate,
+  required Map<String, String> headersTemplate,
+  required String? bodyTemplate,
+}) {
+  final uri = Uri.parse(urlTemplate).replace(queryParameters: queryTemplate);
+  final sourceUrl = _restoreTemplatePlaceholders(uri.toString());
+  final parts = <String>['curl', '--url', _shellQuote(sourceUrl)];
+  if (method != null) {
+    parts.addAll(['-X', _shellQuote(method)]);
+  }
+  for (final entry in headersTemplate.entries) {
+    parts.addAll(['-H', _shellQuote('${entry.key}: ${entry.value}')]);
+  }
+  if (bodyTemplate != null) {
+    parts.addAll(['--data-raw', _shellQuote(bodyTemplate)]);
+  }
+  return parts.join(' ');
+}
+
+String _restoreTemplatePlaceholders(String value) => value.replaceAllMapped(
+  RegExp(r'%24%7B([A-Z][A-Z0-9_]*)%7D', caseSensitive: false),
+  (match) => '\${${match[1]}}',
+);
+
+String _shellQuote(String value) => "'${value.replaceAll("'", r"'\''")}'";
 
 String _replaceJsonSecrets(String body, _SecretCollector secrets) {
   try {

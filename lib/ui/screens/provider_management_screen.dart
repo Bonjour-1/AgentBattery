@@ -864,6 +864,7 @@ class _ProviderEditorDialogState extends State<ProviderEditorDialog> {
                 headersTemplate: headers,
                 bodyTemplate: editor.body.text,
                 successRule: request.successRule,
+                sourceCurl: request.sourceCurl,
               )
             else
               request,
@@ -979,6 +980,9 @@ class _ProviderEditorDialogState extends State<ProviderEditorDialog> {
       bodyTemplate: draft.requestTemplate.bodyTemplate == null
           ? null
           : rename(draft.requestTemplate.bodyTemplate!),
+      sourceCurl: draft.requestTemplate.sourceCurl == null
+          ? null
+          : rename(draft.requestTemplate.sourceCurl!),
     );
     final definitions = variables
         .map(
