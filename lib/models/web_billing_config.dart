@@ -98,6 +98,7 @@ class RequestTemplate {
     this.headersTemplate = const {},
     this.bodyTemplate,
     this.successRule,
+    this.sourceCurl,
   });
 
   final String id;
@@ -107,6 +108,7 @@ class RequestTemplate {
   final Map<String, String> headersTemplate;
   final String? bodyTemplate;
   final BusinessSuccessRule? successRule;
+  final String? sourceCurl;
 
   Map<String, Object?> toJson() => {
     'id': id,
@@ -116,6 +118,7 @@ class RequestTemplate {
     'headers_template': headersTemplate,
     if (bodyTemplate != null) 'body_template': bodyTemplate,
     if (successRule != null) 'success_rule': successRule!.toJson(),
+    if (sourceCurl != null) 'source_curl': sourceCurl,
   };
 
   factory RequestTemplate.fromJson(Object? raw) {
@@ -130,6 +133,7 @@ class RequestTemplate {
       successRule: json['success_rule'] == null
           ? null
           : BusinessSuccessRule.fromJson(json['success_rule']),
+      sourceCurl: json['source_curl']?.toString(),
     );
   }
 }
