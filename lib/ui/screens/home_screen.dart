@@ -229,6 +229,7 @@ Future<void> _showWindowShowHotkeySettings(
 ) async {
   var shortcut = controller.windowShowHotkey;
   var errorText = '';
+  String? result;
   await showDialog<void>(
     context: context,
     builder: (dialogContext) => StatefulBuilder(
@@ -277,7 +278,7 @@ Future<void> _showWindowShowHotkeySettings(
                 setDialogState(() => errorText = '该组合键已被系统或其他程序占用');
                 return;
               }
-              await controller.setWindowShowHotkey(shortcut);
+              result = shortcut;
               if (dialogContext.mounted) Navigator.pop(dialogContext);
             },
             child: const Text('保存'),
@@ -286,6 +287,9 @@ Future<void> _showWindowShowHotkeySettings(
       ),
     ),
   );
+  if (result case final value?) {
+    await controller.setWindowShowHotkey(value);
+  }
 }
 
 HotKey _hotKeyFromShortcut(String shortcut) {
@@ -338,6 +342,7 @@ Future<void> _showManualUsageDialog(
 ) async {
   final amount = TextEditingController(text: existingAmount.toStringAsFixed(2));
   var errorText = '';
+  double? result;
   await showDialog<void>(
     context: context,
     builder: (dialogContext) => StatefulBuilder(
@@ -371,11 +376,7 @@ Future<void> _showManualUsageDialog(
                   setDialogState(() => errorText = '请输入有限且不小于 0 的金额');
                   return;
                 }
-                await controller.setManualUsage(
-                  providerId: config.id,
-                  period: period,
-                  amount: value,
-                );
+                result = value;
                 if (dialogContext.mounted) Navigator.pop(dialogContext);
               },
               child: const Text('保存'),
@@ -385,6 +386,13 @@ Future<void> _showManualUsageDialog(
       },
     ),
   );
+  if (result case final value?) {
+    await controller.setManualUsage(
+      providerId: config.id,
+      period: period,
+      amount: value,
+    );
+  }
   WidgetsBinding.instance.addPostFrameCallback((_) => amount.dispose());
 }
 
