@@ -44,12 +44,14 @@ class _AgentBatteryAppState extends State<AgentBatteryApp> with WindowListener {
   late final FullscreenWindowService fullscreenWindow =
       widget.fullscreenWindowService ?? FullscreenWindowService();
   ThemeReference? _lastAppliedThemeReference;
+  late ThemeReference _materialThemeReference;
   WindowLayoutPolicy? _lastAppliedLayout;
   Future<void> _windowLayoutUpdate = Future.value();
 
   @override
   void initState() {
     super.initState();
+    _materialThemeReference = controller.themeReference;
     controller.addListener(_changed);
     if (!widget.initializeServices) return;
     windowManager.addListener(this);
@@ -70,13 +72,15 @@ class _AgentBatteryAppState extends State<AgentBatteryApp> with WindowListener {
   Future<void> _exitFullscreen() => fullscreenWindow.exit();
 
   void _changed() {
+    final themeChanged = _materialThemeReference != controller.themeReference;
+    if (themeChanged) _materialThemeReference = controller.themeReference;
     if (widget.initializeServices && Platform.isWindows) {
       _windowLayoutUpdate = _windowLayoutUpdate.then((_) async {
         await _applyThemeWindowLayout();
         await _registerWindowShowHotkey();
       });
     }
-    if (mounted) setState(() {});
+    if (themeChanged && mounted) setState(() {});
   }
 
   Future<void> _applyThemeWindowLayout() async {
