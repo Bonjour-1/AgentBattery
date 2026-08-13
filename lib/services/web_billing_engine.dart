@@ -154,25 +154,24 @@ class WebBillingEngine {
     }
     try {
       final variables = await _variables(providerId, config, now);
-      final resolved = _buildRequest(request, variables);
-      final response = await _transport(resolved).timeout(timeout);
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw WebBillingFailure('账单请求 HTTP ${response.statusCode}');
+      final first = await _attemptMetric(metric, request, variables);
+      if (first.result != null) return first.result!;
+      if (first.authenticationFailure &&
+          await _runPreflight(config, variables)) {
+        final retry = await _attemptMetric(metric, request, variables);
+        if (retry.result != null) return retry.result!;
       }
-      final decoded = jsonDecode(response.body);
-      if (!_matchesSuccessRule(decoded, request.successRule)) {
-        throw const WebBillingFailure('账单业务成功规则不匹配');
+      for (final fallbackId
+          in config.fallbackRequestTemplateIds[metric.kind.name] ??
+              const <String>[]) {
+        final fallback = config.requestTemplates
+            .where((item) => item.id == fallbackId)
+            .firstOrNull;
+        if (fallback == null) continue;
+        final attempt = await _attemptMetric(metric, fallback, variables);
+        if (attempt.result != null) return attempt.result!;
       }
-      final expression = metric.processingExpression?.trim();
-      if (expression?.isNotEmpty == true) {
-        return WebBillingMetricResult.success(
-          WebBillingExpression.evaluate(expression!, decoded),
-        );
-      }
-      final value = _extractValue(decoded, metric.responseRule);
-      final scaled = value * metric.multiplier / metric.divisor;
-      if (!scaled.isFinite) throw const FormatException();
-      return WebBillingMetricResult.success(scaled);
+      throw first.failure ?? const WebBillingFailure('账单请求失败');
     } on WebBillingFailure catch (failure) {
       return WebBillingMetricResult.failed(failure.message);
     } on WebBillingExpressionException {
@@ -184,6 +183,83 @@ class WebBillingEngine {
     } catch (_) {
       return const WebBillingMetricResult.failed('账单响应格式异常');
     }
+  }
+
+  Future<_MetricAttempt> _attemptMetric(
+    MetricRule metric,
+    RequestTemplate request,
+    Map<String, String> variables,
+  ) async {
+    try {
+      final response = await _transport(
+        _buildRequest(request, variables),
+      ).timeout(timeout);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        return _MetricAttempt.failed(
+          WebBillingFailure('账单请求 HTTP ${response.statusCode}'),
+          authenticationFailure:
+              response.statusCode == 401 || response.statusCode == 403,
+        );
+      }
+      final decoded = jsonDecode(response.body);
+      if (!_matchesSuccessRule(decoded, request.successRule)) {
+        return _MetricAttempt.failed(const WebBillingFailure('账单业务成功规则不匹配'));
+      }
+      final expression = metric.processingExpression?.trim();
+      final value = expression?.isNotEmpty == true
+          ? WebBillingExpression.evaluate(expression!, decoded)
+          : _extractValue(decoded, metric.responseRule) *
+                metric.multiplier /
+                metric.divisor;
+      if (!value.isFinite) throw const FormatException();
+      return _MetricAttempt.success(WebBillingMetricResult.success(value));
+    } on WebBillingFailure catch (failure) {
+      return _MetricAttempt.failed(
+        failure,
+        authenticationFailure: failure.message.startsWith('未配置账单变量：'),
+      );
+    } on WebBillingExpressionException catch (_) {
+      return _MetricAttempt.failed(
+        const WebBillingFailure(WebBillingExpressionException.safeMessage),
+      );
+    } on TimeoutException {
+      return _MetricAttempt.failed(const WebBillingFailure('账单请求超时'));
+    } catch (_) {
+      return _MetricAttempt.failed(const WebBillingFailure('账单响应格式异常'));
+    }
+  }
+
+  Future<bool> _runPreflight(
+    WebBillingConfig config,
+    Map<String, String> variables,
+  ) async {
+    var populated = false;
+    for (final id in config.preflightRequestTemplateIds) {
+      final request = config.requestTemplates
+          .where((item) => item.id == id)
+          .firstOrNull;
+      if (request == null ||
+          request.responseVariableName == null ||
+          request.responseVariablePath == null) {
+        continue;
+      }
+      try {
+        final response = await _transport(
+          _buildRequest(request, variables),
+        ).timeout(timeout);
+        if (response.statusCode < 200 || response.statusCode >= 300) continue;
+        final decoded = jsonDecode(response.body);
+        final value = _extractScalar(decoded, request.responseVariablePath!);
+        if (value != null && value.toString().isNotEmpty) {
+          variables[request.responseVariableName!] = value.toString();
+          populated = true;
+        }
+      } catch (_) {
+        // Optional authentication requests never invalidate a working primary
+        // request and never replace the saved credential by themselves.
+      }
+    }
+    return populated;
   }
 
   bool _validMetric(MetricRule metric) {
@@ -359,6 +435,20 @@ class WebBillingEngine {
 class WebBillingFailure implements Exception {
   const WebBillingFailure(this.message);
   final String message;
+}
+
+class _MetricAttempt {
+  const _MetricAttempt.success(this.result)
+    : failure = null,
+      authenticationFailure = false;
+  const _MetricAttempt.failed(
+    this.failure, {
+    this.authenticationFailure = false,
+  }) : result = null;
+
+  final WebBillingMetricResult? result;
+  final WebBillingFailure? failure;
+  final bool authenticationFailure;
 }
 
 extension<T> on Iterable<T> {

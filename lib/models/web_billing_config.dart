@@ -99,6 +99,8 @@ class RequestTemplate {
     this.bodyTemplate,
     this.successRule,
     this.sourceCurl,
+    this.responseVariableName,
+    this.responseVariablePath,
   });
 
   final String id;
@@ -110,6 +112,10 @@ class RequestTemplate {
   final BusinessSuccessRule? successRule;
   final String? sourceCurl;
 
+  /// Optional variable populated from a successful JSON response.
+  final String? responseVariableName;
+  final String? responseVariablePath;
+
   Map<String, Object?> toJson() => {
     'id': id,
     'method': method,
@@ -119,6 +125,10 @@ class RequestTemplate {
     if (bodyTemplate != null) 'body_template': bodyTemplate,
     if (successRule != null) 'success_rule': successRule!.toJson(),
     if (sourceCurl != null) 'source_curl': sourceCurl,
+    if (responseVariableName != null)
+      'response_variable_name': responseVariableName,
+    if (responseVariablePath != null)
+      'response_variable_path': responseVariablePath,
   };
 
   factory RequestTemplate.fromJson(Object? raw) {
@@ -134,6 +144,8 @@ class RequestTemplate {
           ? null
           : BusinessSuccessRule.fromJson(json['success_rule']),
       sourceCurl: json['source_curl']?.toString(),
+      responseVariableName: json['response_variable_name']?.toString(),
+      responseVariablePath: json['response_variable_path']?.toString(),
     );
   }
 }
@@ -264,6 +276,8 @@ class WebBillingConfig {
     this.displayPolicy = const DisplayPolicy(),
     this.source,
     this.migrationMetadata,
+    this.preflightRequestTemplateIds = const [],
+    this.fallbackRequestTemplateIds = const {},
   });
 
   final int schemaVersion;
@@ -273,6 +287,8 @@ class WebBillingConfig {
   final DisplayPolicy displayPolicy;
   final String? source;
   final Map<String, Object?>? migrationMetadata;
+  final List<String> preflightRequestTemplateIds;
+  final Map<String, List<String>> fallbackRequestTemplateIds;
 
   Map<String, Object?> toJson() => {
     'schema_version': schemaVersion,
@@ -286,6 +302,10 @@ class WebBillingConfig {
     'display_policy': displayPolicy.toJson(),
     if (source != null) 'source': source,
     if (migrationMetadata != null) 'migration_metadata': migrationMetadata,
+    if (preflightRequestTemplateIds.isNotEmpty)
+      'preflight_request_template_ids': preflightRequestTemplateIds,
+    if (fallbackRequestTemplateIds.isNotEmpty)
+      'fallback_request_template_ids': fallbackRequestTemplateIds,
   };
 
   factory WebBillingConfig.fromJson(Object? raw) {
@@ -308,6 +328,16 @@ class WebBillingConfig {
       migrationMetadata: json['migration_metadata'] is Map
           ? _jsonMap(json['migration_metadata'])
           : null,
+      preflightRequestTemplateIds: _jsonList(
+        json['preflight_request_template_ids'],
+      ).map((value) => value.toString()).toList(),
+      fallbackRequestTemplateIds:
+          _jsonMap(json['fallback_request_template_ids']).map(
+            (key, value) => MapEntry(
+              key,
+              _jsonList(value).map((item) => item.toString()).toList(),
+            ),
+          ),
     );
   }
 }

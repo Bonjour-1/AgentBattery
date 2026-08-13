@@ -865,6 +865,8 @@ class _ProviderEditorDialogState extends State<ProviderEditorDialog> {
                 bodyTemplate: editor.body.text,
                 successRule: request.successRule,
                 sourceCurl: request.sourceCurl,
+                responseVariableName: request.responseVariableName,
+                responseVariablePath: request.responseVariablePath,
               )
             else
               request,
@@ -879,6 +881,7 @@ class _ProviderEditorDialogState extends State<ProviderEditorDialog> {
     List<RequestTemplate>? requests,
     List<SecretVariableDefinition>? definitions,
     DisplayPolicy? displayPolicy,
+    List<String>? preflightRequestTemplateIds,
   }) => WebBillingConfig(
     schemaVersion: web.schemaVersion,
     requestTemplates: requests ?? web.requestTemplates,
@@ -887,6 +890,9 @@ class _ProviderEditorDialogState extends State<ProviderEditorDialog> {
     displayPolicy: displayPolicy ?? web.displayPolicy,
     source: web.source,
     migrationMetadata: web.migrationMetadata,
+    preflightRequestTemplateIds:
+        preflightRequestTemplateIds ?? web.preflightRequestTemplateIds,
+    fallbackRequestTemplateIds: web.fallbackRequestTemplateIds,
   );
   MetricFailureDisplay _displayFor(WebBillingMetricKind kind) => switch (kind) {
     WebBillingMetricKind.balance => web.displayPolicy.balance,
@@ -967,6 +973,7 @@ class _ProviderEditorDialogState extends State<ProviderEditorDialog> {
     }
     final requestId =
         'imported-${kind.name}-${DateTime.now().microsecondsSinceEpoch}';
+    final isCodeApiMe = _isCodeApiMeUrl(draft.requestTemplate.urlTemplate);
     final request = RequestTemplate(
       id: requestId,
       method: draft.requestTemplate.method,
@@ -983,7 +990,40 @@ class _ProviderEditorDialogState extends State<ProviderEditorDialog> {
       sourceCurl: draft.requestTemplate.sourceCurl == null
           ? null
           : rename(draft.requestTemplate.sourceCurl!),
+      responseVariableName: isCodeApiMe ? 'CODEAPI_API_TOKEN' : null,
+      responseVariablePath: isCodeApiMe ? 'api_token' : null,
     );
+    final requestsToAdd = <RequestTemplate>[request];
+    var metricRequestId = requestId;
+    var preflightIds = <String>[];
+    if (isCodeApiMe) {
+      const tokenName = 'CODEAPI_API_TOKEN';
+      final usageId = 'codeapi-auto-usage-${kind.name}';
+      requestsToAdd.add(
+        RequestTemplate(
+          id: usageId,
+          method: 'POST',
+          urlTemplate: 'https://codeapi.icu/api/portal/usage',
+          headersTemplate: const {'Content-Type': 'application/json'},
+          bodyTemplate: r'{"key":"${CODEAPI_API_TOKEN}"}',
+        ),
+      );
+      metricRequestId = usageId;
+      preflightIds = [requestId];
+      if (!variables.any((item) => item.name.text.trim() == tokenName)) {
+        variables.add(
+          _VariableEditor(
+            const SecretVariableDefinition(
+              id: 'codeapi-api-token',
+              name: tokenName,
+              displayName: 'CodeAPI 临时账单令牌',
+              type: SecretVariableType.bearerToken,
+              required: false,
+            ),
+          ),
+        );
+      }
+    }
     final definitions = variables
         .map(
           (item) => SecretVariableDefinition(
@@ -1021,7 +1061,7 @@ class _ProviderEditorDialogState extends State<ProviderEditorDialog> {
                 !replacedIds.contains(request.id) ||
                 stillUsedIds.contains(request.id),
           ),
-          request,
+          ...requestsToAdd,
         ],
         definitions: definitions,
         metricRules: [
@@ -1029,15 +1069,30 @@ class _ProviderEditorDialogState extends State<ProviderEditorDialog> {
           MetricRule(
             id: 'imported-${kind.name}',
             kind: kind,
-            requestTemplateId: requestId,
-            responseRule: const ResponseRule(scalarPath: ''),
+            requestTemplateId: metricRequestId,
+            responseRule: ResponseRule(
+              scalarPath: isCodeApiMe
+                  ? kind == WebBillingMetricKind.balance
+                        ? 'balance_usd'
+                        : kind == WebBillingMetricKind.daily
+                        ? 'today_cost_usd'
+                        : 'month_cost_usd'
+                  : '',
+            ),
           ),
         ],
+        preflightRequestTemplateIds: preflightIds,
       );
       _syncMetricEditors();
       _syncRequestEditors();
       result = '已应用通用账单模板；可在下方编辑请求、解析、缩放和显示策略。';
     });
+  }
+
+  bool _isCodeApiMeUrl(String value) {
+    final uri = Uri.tryParse(value);
+    return uri?.host.toLowerCase() == 'codeapi.icu' &&
+        uri?.path.toLowerCase() == '/api/portal/me';
   }
 
   void _mergeVariables(List<SecretVariableDefinition> discovered) {

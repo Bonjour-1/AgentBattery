@@ -270,6 +270,150 @@ void main() {
         );
     expect(result.balance.failure, '账单请求 HTTP 500');
   });
+
+  test(
+    'authentication preflight runs only after the primary request fails',
+    () async {
+      final sent = <RawHttpRequest>[];
+      final engine = WebBillingEngine(
+        secretResolver: (_, variable) async => switch (variable) {
+          'AUTH_TOKEN' => 'login-token',
+          'SESSION_TOKEN' => 'old-token',
+          _ => null,
+        },
+        transport: (request) async {
+          sent.add(request);
+          if (request.uri.path == '/billing') {
+            if (request.headers['Authorization'] == 'Bearer session-token') {
+              return const WebBillingHttpResponse(200, '{"balance":8}');
+            }
+            return const WebBillingHttpResponse(401, '{}');
+          }
+          return const WebBillingHttpResponse(
+            200,
+            '{"api_token":"session-token"}',
+          );
+        },
+      );
+
+      final result = await engine.execute(
+        providerId: 'codeapi',
+        config: WebBillingConfig(
+          schemaVersion: 1,
+          secretVariableDefinitions: const [
+            SecretVariableDefinition(
+              id: 'auth',
+              name: 'AUTH_TOKEN',
+              displayName: '登录令牌',
+              type: SecretVariableType.bearerToken,
+              required: true,
+            ),
+            SecretVariableDefinition(
+              id: 'session',
+              name: 'SESSION_TOKEN',
+              displayName: '会话令牌',
+              type: SecretVariableType.bearerToken,
+              required: false,
+            ),
+          ],
+          requestTemplates: const [
+            RequestTemplate(
+              id: 'billing',
+              method: 'GET',
+              urlTemplate: 'https://example.test/billing',
+              headersTemplate: {'Authorization': r'Bearer ${SESSION_TOKEN}'},
+            ),
+            RequestTemplate(
+              id: 'me',
+              method: 'GET',
+              urlTemplate: 'https://example.test/me',
+              headersTemplate: {'Authorization': r'Bearer ${AUTH_TOKEN}'},
+              responseVariableName: 'SESSION_TOKEN',
+              responseVariablePath: 'api_token',
+            ),
+          ],
+          metricRules: [
+            _metric(WebBillingMetricKind.balance, 'billing', 'balance'),
+          ],
+          preflightRequestTemplateIds: const ['me'],
+        ),
+      );
+
+      expect(result.balance.value, 8);
+      expect(sent.map((request) => request.uri.path), [
+        '/billing',
+        '/me',
+        '/billing',
+      ]);
+    },
+  );
+
+  test(
+    'successful primary billing request does not depend on a failed preflight',
+    () async {
+      final paths = <String>[];
+      final result =
+          await WebBillingEngine(
+            secretResolver: (_, variable) async =>
+                variable == 'AUTH_TOKEN' || variable == 'SESSION_TOKEN'
+                ? 'saved-token'
+                : null,
+            transport: (request) async {
+              paths.add(request.uri.path);
+              if (request.uri.path == '/billing') {
+                return const WebBillingHttpResponse(200, '{"balance":3}');
+              }
+              return const WebBillingHttpResponse(401, '{}');
+            },
+          ).execute(
+            providerId: 'codeapi',
+            config: WebBillingConfig(
+              schemaVersion: 1,
+              secretVariableDefinitions: const [
+                SecretVariableDefinition(
+                  id: 'auth',
+                  name: 'AUTH_TOKEN',
+                  displayName: '登录令牌',
+                  type: SecretVariableType.bearerToken,
+                  required: true,
+                ),
+                SecretVariableDefinition(
+                  id: 'session',
+                  name: 'SESSION_TOKEN',
+                  displayName: '账单令牌',
+                  type: SecretVariableType.bearerToken,
+                  required: false,
+                ),
+              ],
+              requestTemplates: const [
+                RequestTemplate(
+                  id: 'billing',
+                  method: 'GET',
+                  urlTemplate: 'https://example.test/billing',
+                  headersTemplate: {
+                    'Authorization': r'Bearer ${SESSION_TOKEN}',
+                  },
+                ),
+                RequestTemplate(
+                  id: 'me',
+                  method: 'GET',
+                  urlTemplate: 'https://example.test/me',
+                  headersTemplate: {'Authorization': r'Bearer ${AUTH_TOKEN}'},
+                  responseVariableName: 'SESSION_TOKEN',
+                  responseVariablePath: 'api_token',
+                ),
+              ],
+              metricRules: [
+                _metric(WebBillingMetricKind.balance, 'billing', 'balance'),
+              ],
+              preflightRequestTemplateIds: const ['me'],
+            ),
+          );
+
+      expect(result.balance.value, 3);
+      expect(paths, ['/billing']);
+    },
+  );
 }
 
 const _secret = SecretVariableDefinition(
