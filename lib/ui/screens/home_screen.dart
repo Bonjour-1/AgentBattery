@@ -158,6 +158,7 @@ Future<void> _showAutoRefreshSettings(
     text: controller.autoRefreshIntervalSeconds.toString(),
   );
   var enabled = controller.autoRefreshEnabled;
+  ({bool enabled, int interval})? result;
   await showDialog<void>(
     context: context,
     builder: (dialogContext) => StatefulBuilder(
@@ -203,10 +204,7 @@ Future<void> _showAutoRefreshSettings(
                 );
                 return;
               }
-              await controller.setAutoRefresh(
-                enabled: enabled,
-                intervalSeconds: interval,
-              );
+              result = (enabled: enabled, interval: interval);
               if (dialogContext.mounted) Navigator.pop(dialogContext);
             },
             child: const Text('保存'),
@@ -215,6 +213,12 @@ Future<void> _showAutoRefreshSettings(
       ),
     ),
   );
+  if (result case final value?) {
+    await controller.setAutoRefresh(
+      enabled: value.enabled,
+      intervalSeconds: value.interval,
+    );
+  }
   WidgetsBinding.instance.addPostFrameCallback((_) => seconds.dispose());
 }
 
