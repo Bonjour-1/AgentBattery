@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <title>AgentBattery default icon</title>
+  <rect x="18" y="18" width="220" height="220" rx="62" fill="#F4EEFF" stroke="#4B3278" stroke-width="8"/>
+  <rect x="52" y="53" width="132" height="151" rx="32" fill="#EDE5FF" stroke="#4B3278" stroke-width="9"/>
+  <rect x="61" y="151" width="114" height="44" rx="15" fill="#BCEBDD"/>
+  <rect x="179" y="102" width="30" height="48" rx="14" fill="#BCEBDD" stroke="#4B3278" stroke-width="8"/>
+  <polygon points="124,75 94,137 119,137 108,185 157,119 130,119" fill="#8A4DE8" stroke="#6D36B4" stroke-width="3"/>
+  <circle cx="91" cy="178" r="5" fill="#4B3278"/>
+  <circle cx="147" cy="178" r="5" fill="#4B3278"/>
+  <polyline points="112,190 119,195 128,188" fill="none" stroke="#4B3278" stroke-width="4"/>
+  <polyline points="151,164 157,171 169,157" fill="none" stroke="#36A982" stroke-width="6"/>
+</svg>

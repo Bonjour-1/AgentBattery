@@ -52,6 +52,7 @@ END
 
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
+// All build modes use the default battery companion icon.
 IDI_APP_ICON            ICON                    "resources\\app_icon.ico"
 
 
