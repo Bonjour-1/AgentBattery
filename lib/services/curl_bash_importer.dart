@@ -114,10 +114,11 @@ class CurlBashImporter {
       return CurlParseResult.failure(error.message);
     }
 
-    if (url == null || url.isEmpty) {
+    final resolvedUrl = url;
+    if (resolvedUrl == null || resolvedUrl.isEmpty) {
       return CurlParseResult.failure('A curl URL is required.');
     }
-    final uri = Uri.tryParse(url);
+    final uri = Uri.tryParse(resolvedUrl);
     if (uri == null || !uri.hasScheme || uri.host.isEmpty) {
       return CurlParseResult.failure(
         'The curl URL must be an absolute HTTP URL.',

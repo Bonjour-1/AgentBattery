@@ -79,11 +79,12 @@ jobs:
         run: |
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$TAG" "$ARCHIVE" --clobber --repo "$GITHUB_REPOSITORY"
-            gh release edit "$TAG" --prerelease=false --latest --repo "$GITHUB_REPOSITORY"
+            gh release edit "$TAG" --draft=false --prerelease=false --latest --repo "$GITHUB_REPOSITORY"
           else
             gh release create "$TAG" "$ARCHIVE" \
               --title "AgentBattery $TAG" \
               --generate-notes \
+              --draft=false \
               --latest \
               --repo "$GITHUB_REPOSITORY"
           fi

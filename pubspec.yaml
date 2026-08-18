@@ -68,6 +68,8 @@ flutter:
   uses-material-design: true
   assets:
     - windows/runner/resources/app_icon.ico
+    - windows/runner/resources/app_icon_catgirl_hidden.ico
+    - assets/app_icon.png
     - assets/images/miku_stage_background.png
     - assets/images/mita_colored_pencil_dashboard_background.png
     - assets/images/nailong_dashboard_background.png

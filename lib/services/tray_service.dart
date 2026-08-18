@@ -9,7 +9,8 @@ class TrayService with TrayListener {
   Future<bool> initialize() async {
     if (!Platform.isWindows) return false;
     try {
-      await trayManager.setIcon(r'windows\runner\resources\app_icon.ico');
+      const iconPath = r'windows\runner\resources\app_icon.ico';
+      await trayManager.setIcon(iconPath);
       await trayManager.setToolTip('AgentBattery');
       await trayManager.setContextMenu(
         Menu(
