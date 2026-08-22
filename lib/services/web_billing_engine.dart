@@ -107,8 +107,10 @@ class WebBillingEngine {
   );
 
   static Future<String?> _unconfiguredSecret(String _, String _) async => null;
-  static Future<void> _unconfiguredWriter(String _, Map<String, String> values) =>
-      Future.error(const WebBillingFailure('账单认证刷新未配置'));
+  static Future<void> _unconfiguredWriter(
+    String _,
+    Map<String, String> values,
+  ) => Future.error(const WebBillingFailure('账单认证刷新未配置'));
   static Future<WebBillingHttpResponse> _unsupportedTransport(
     RawHttpRequest _,
   ) => Future.error(const WebBillingFailure('网络请求失败'));
@@ -172,9 +174,17 @@ class WebBillingEngine {
       final refresh = config.credentialRefresh;
       if (refresh != null &&
           refresh.triggerStatusCodes.contains(response.statusCode)) {
-        final refreshed = await _refreshCredentials(providerId, config, now);
-        if (!refreshed) {
-          throw const WebBillingFailure('账单认证刷新失败');
+        final latestVariables = await _variables(providerId, config, now);
+        final credentialsChanged = _refreshInputsChanged(
+          refresh,
+          variables,
+          latestVariables,
+        );
+        if (!credentialsChanged) {
+          final refreshed = await _refreshCredentials(providerId, config, now);
+          if (!refreshed) {
+            throw const WebBillingFailure('账单认证刷新失败');
+          }
         }
         variables = await _variables(providerId, config, now);
         resolved = _buildRequest(request, variables);
@@ -210,6 +220,35 @@ class WebBillingEngine {
     }
   }
 
+  bool _refreshInputsChanged(
+    CredentialRefreshConfig refresh,
+    Map<String, String> before,
+    Map<String, String> after,
+  ) {
+    final names = <String>{
+      ...refresh.responseVariablePaths.keys,
+      ..._templateVariableNames(refresh.requestTemplate),
+    };
+    return names.any((name) => before[name] != after[name]);
+  }
+
+  Set<String> _templateVariableNames(RequestTemplate template) {
+    final names = <String>{};
+    final pattern = RegExp(r'\$\{([A-Za-z_][A-Za-z0-9_]*)\}');
+    final values = <String>[
+      template.urlTemplate,
+      ...template.queryTemplate.keys,
+      ...template.queryTemplate.values,
+      ...template.headersTemplate.keys,
+      ...template.headersTemplate.values,
+      if (template.bodyTemplate != null) template.bodyTemplate!,
+    ];
+    for (final value in values) {
+      names.addAll(pattern.allMatches(value).map((match) => match.group(1)!));
+    }
+    return names;
+  }
+
   Future<bool> _refreshCredentials(
     String providerId,
     WebBillingConfig config,
@@ -233,6 +272,12 @@ class WebBillingEngine {
   ) async {
     final refresh = config.credentialRefresh!;
     try {
+      final declaredNames = config.secretVariableDefinitions
+          .map((definition) => definition.name)
+          .toSet();
+      if (!declaredNames.containsAll(refresh.responseVariablePaths.keys)) {
+        return false;
+      }
       final variables = await _variables(providerId, config, now);
       final request = _buildRequest(refresh.requestTemplate, variables);
       final response = await _transport(request).timeout(timeout);

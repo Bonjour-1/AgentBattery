@@ -161,6 +161,69 @@ void main() {
     expect(billingCalls, 2);
   });
 
+  test('a stale late 401 retries with already refreshed credentials', () async {
+    final secrets = {'ACCESS_TOKEN': 'expired', 'REFRESH_TOKEN': 'refresh'};
+    final lateResponse = Completer<void>();
+    var expiredCalls = 0;
+    var refreshCalls = 0;
+    final engine = WebBillingEngine(
+      secretResolver: (_, name) async => secrets[name],
+      secretWriter: (_, values) async => secrets.addAll(values),
+      transport: (request) async {
+        if (request.uri.path.endsWith('/refresh')) {
+          refreshCalls++;
+          return const WebBillingHttpResponse(
+            200,
+            '{"data":{"token":"new","refresh_token":"next"}}',
+          );
+        }
+        if (request.headers['Authorization'] == 'Bearer expired') {
+          expiredCalls++;
+          if (expiredCalls == 2) await lateResponse.future;
+          return const WebBillingHttpResponse(401, '{}');
+        }
+        return const WebBillingHttpResponse(200, '{"data":{"balance":5}}');
+      },
+    );
+
+    final first = engine.execute(providerId: 'generic', config: config());
+    final second = engine.execute(providerId: 'generic', config: config());
+    final firstResult = await first;
+    lateResponse.complete();
+    final secondResult = await second;
+
+    expect(firstResult.balance.value, 5);
+    expect(secondResult.balance.value, 5);
+    expect(refreshCalls, 1);
+  });
+
+  test('refresh outputs cannot write undeclared secure variables', () async {
+    final invalid = WebBillingConfig(
+      schemaVersion: 1,
+      secretVariableDefinitions: const [access, refresh],
+      requestTemplates: config().requestTemplates,
+      metricRules: config().metricRules,
+      credentialRefresh: CredentialRefreshConfig(
+        requestTemplate: refreshConfig.requestTemplate,
+        responseVariablePaths: const {'UNDECLARED': r'$.data.token'},
+      ),
+    );
+    var writes = 0;
+    final engine = WebBillingEngine(
+      secretResolver: (_, name) async =>
+          name == 'ACCESS_TOKEN' ? 'expired' : 'refresh',
+      secretWriter: (_, values) async => writes++,
+      transport: (request) async => request.uri.path.endsWith('/refresh')
+          ? const WebBillingHttpResponse(200, '{"data":{"token":"new"}}')
+          : const WebBillingHttpResponse(401, '{}'),
+    );
+
+    final result = await engine.execute(providerId: 'generic', config: invalid);
+
+    expect(result.balance.failure, '账单认证刷新失败');
+    expect(writes, 0);
+  });
+
   test('concurrent 401 responses share one refresh operation', () async {
     final secrets = {'ACCESS_TOKEN': 'expired', 'REFRESH_TOKEN': 'refresh'};
     final refreshGate = Completer<void>();

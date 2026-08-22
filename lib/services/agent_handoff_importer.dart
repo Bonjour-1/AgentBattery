@@ -290,14 +290,7 @@ class AgentHandoffImporter {
           .cast<num>()
           .map((value) => value.toInt())
           .toList(),
-      requestTemplate: RequestTemplate(
-        id: request['id']! as String,
-        method: request['method']! as String,
-        urlTemplate: request['url_template']! as String,
-        queryTemplate: _stringMap(request['query_template']),
-        headersTemplate: _stringMap(request['headers_template']),
-        bodyTemplate: request['body_template']?.toString(),
-      ),
+      requestTemplate: RequestTemplate.fromJson(request),
       responseVariablePaths: _stringMap(json['response_variable_paths']),
     );
   }
