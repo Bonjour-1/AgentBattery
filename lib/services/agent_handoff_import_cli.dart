@@ -21,9 +21,16 @@ Future<int> runAgentHandoffImporterCli(
     write('Usage: AgentBattery.exe import-agent-handoff <artifact.json>');
     return 2;
   }
-  if (requireClosedProcess && await _isAnotherAgentBatteryProcessRunning()) {
-    write('REFUSED: AgentBattery must be fully closed before import.');
-    return 3;
+  if (requireClosedProcess) {
+    try {
+      if (await _isAnotherAgentBatteryProcessRunning()) {
+        write('REFUSED: AgentBattery must be fully closed before import.');
+        return 3;
+      }
+    } catch (_) {
+      write('REFUSED: AgentBattery closed-state check failed.');
+      return 3;
+    }
   }
 
   Object? decoded;
@@ -104,9 +111,14 @@ Future<bool> _isAnotherAgentBatteryProcessRunning() async {
   final result = await Process.run('powershell.exe', [
     '-NoProfile',
     '-Command',
-    r'$running = Get-Process AgentBattery -ErrorAction SilentlyContinue | '
-        'Where-Object { ${r'$PSItem'}.Id -ne $importPid }; '
-        r'if ($running) { exit 10 } else { exit 0 }',
+    r'try { '
+        r'$running = Get-CimInstance Win32_Process -ErrorAction Stop | '
+        'Where-Object { ${r'$PSItem'}.Name -eq "AgentBattery.exe" -and '
+        '${r'$PSItem'}.ProcessId -ne $importPid }; '
+        r'if ($running) { exit 10 } else { exit 0 } '
+        r'} catch { exit 11 }',
   ]);
-  return result.exitCode == 10;
+  if (result.exitCode == 10) return true;
+  if (result.exitCode == 0) return false;
+  throw StateError('Unable to verify AgentBattery process state.');
 }

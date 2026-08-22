@@ -49,7 +49,11 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   if (!single_instance_mutex) {
     return EXIT_FAILURE;
   }
-  if (mutex_error == ERROR_ALREADY_EXISTS && !is_agent_handoff_import) {
+  if (mutex_error == ERROR_ALREADY_EXISTS) {
+    if (is_agent_handoff_import) {
+      CloseHandle(single_instance_mutex);
+      return 3;
+    }
     RestoreExistingWindow();
     CloseHandle(single_instance_mutex);
     return EXIT_SUCCESS;

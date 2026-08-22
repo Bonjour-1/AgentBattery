@@ -10,9 +10,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 class MemorySecrets implements SecureKeyStore {
   final values = <String, String>{};
   String? failKey;
+  final failDeleteKeys = <String>{};
 
   @override
-  Future<void> delete(String key) async => values.remove(key);
+  Future<void> delete(String key) async {
+    if (failDeleteKeys.contains(key)) throw StateError('delete failed');
+    values.remove(key);
+  }
 
   @override
   Future<String?> read(String key) async => values[key];
@@ -205,6 +209,121 @@ void main() {
         'TOKEN',
       )],
       'new-token',
+    );
+  });
+
+  test('renewal updates exactly required_variables', () async {
+    final raw = artifact();
+    (raw['secret_variables'] as List).add({
+      'name': 'COOKIE',
+      'display_name': 'Cookie',
+      'type': 'cookie_header',
+      'required': true,
+    });
+    final secrets = MemorySecrets();
+    final storage = StorageService(keyStore: secrets);
+    final importer = AgentHandoffImporter(storage);
+    await importer.import(
+      raw,
+      secretValues: const {'TOKEN': 'old-token', 'COOKIE': 'old-cookie'},
+    );
+    final renewal = Map<String, Object?>.from(raw)
+      ..['action'] = 'renew_credentials'
+      ..['credential_renewal'] = {
+        'required_variables': ['TOKEN'],
+        'documentation': 'Token only.',
+        'preserve_billing_rules': true,
+      };
+
+    await importer.import(renewal, secretValues: const {'TOKEN': 'new-token'});
+
+    expect(
+      secrets.values[ProviderKeyManager.webBillingVariableKeyFor(
+        'example',
+        'COOKIE',
+      )],
+      'old-cookie',
+    );
+  });
+
+  test(
+    'rollback does not materialize API_KEY fallback into scoped storage',
+    () async {
+      final raw = artifact();
+      final secretVariables = raw['secret_variables'] as List;
+      secretVariables.clear();
+      secretVariables.addAll(<Map<String, Object>>[
+        {
+          'name': 'API_KEY',
+          'display_name': 'API key',
+          'type': 'bearer_token',
+          'required': true,
+        },
+        {
+          'name': 'COOKIE',
+          'display_name': 'Cookie',
+          'type': 'cookie_header',
+          'required': true,
+        },
+      ]);
+      final secrets = MemorySecrets();
+      secrets.values[ProviderKeyManager.keyFor('example')] = 'model-api-key';
+      final scopedApiKey = ProviderKeyManager.webBillingVariableKeyFor(
+        'example',
+        'API_KEY',
+      );
+      secrets.failKey = ProviderKeyManager.webBillingVariableKeyFor(
+        'example',
+        'COOKIE',
+      );
+
+      await expectLater(
+        AgentHandoffImporter(StorageService(keyStore: secrets)).import(
+          raw,
+          secretValues: const {'API_KEY': 'new-key', 'COOKIE': 'new-cookie'},
+        ),
+        throwsA(isA<AgentHandoffImportException>()),
+      );
+
+      expect(secrets.values, isNot(contains(scopedApiKey)));
+      expect(
+        secrets.values[ProviderKeyManager.keyFor('example')],
+        'model-api-key',
+      );
+    },
+  );
+
+  test('rollback attempts every entry and reports rollback failure', () async {
+    final raw = artifact();
+    (raw['secret_variables'] as List).add({
+      'name': 'COOKIE',
+      'display_name': 'Cookie',
+      'type': 'cookie_header',
+      'required': true,
+    });
+    final secrets = MemorySecrets();
+    final tokenKey = ProviderKeyManager.webBillingVariableKeyFor(
+      'example',
+      'TOKEN',
+    );
+    secrets.failKey = ProviderKeyManager.webBillingVariableKeyFor(
+      'example',
+      'COOKIE',
+    );
+    secrets.failDeleteKeys.add(tokenKey);
+
+    await expectLater(
+      AgentHandoffImporter(StorageService(keyStore: secrets)).import(
+        raw,
+        secretValues: const {'TOKEN': 'new-token', 'COOKIE': 'new-cookie'},
+      ),
+      throwsA(
+        isA<AgentHandoffImportException>().having(
+          (error) => error.message,
+          'message',
+          contains('rollback failed'),
+        ),
+      ),
     );
   });
 }

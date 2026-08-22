@@ -137,7 +137,12 @@ class AgentHandoffImporter {
       }
       await _storage.save(snapshot.copyWith(providerConfigs: configs));
     } catch (_) {
-      await _restoreSecrets(providerId, originals);
+      final rollbackComplete = await _restoreSecrets(providerId, originals);
+      if (!rollbackComplete) {
+        throw const AgentHandoffImportException(
+          'Provider configuration save failed and credential rollback failed.',
+        );
+      }
       throw const AgentHandoffImportException(
         'Provider configuration was not saved.',
       );
@@ -165,7 +170,12 @@ class AgentHandoffImporter {
       }
       return originals;
     } catch (_) {
-      await _restoreSecrets(providerId, originals);
+      final rollbackComplete = await _restoreSecrets(providerId, originals);
+      if (!rollbackComplete) {
+        throw const AgentHandoffImportException(
+          'Secure credential write failed and rollback failed.',
+        );
+      }
       throw const AgentHandoffImportException(
         'Secure credential write failed.',
       );
@@ -178,7 +188,7 @@ class AgentHandoffImporter {
   ) async {
     final result = <String, String?>{};
     for (final name in names) {
-      result[name] = await _storage.readProviderWebBillingVariable(
+      result[name] = await _storage.readScopedProviderWebBillingVariable(
         providerId,
         name,
       );
@@ -186,19 +196,28 @@ class AgentHandoffImporter {
     return result;
   }
 
-  Future<void> _restoreSecrets(
+  Future<bool> _restoreSecrets(
     String providerId,
     Map<String, String?> originals,
   ) async {
+    var complete = true;
     for (final entry in originals.entries) {
-      if (entry.value == null) {
-        await _storage.deleteProviderWebBillingVariable(providerId, entry.key);
-      } else {
-        await _storage.saveProviderWebBillingVariables(providerId, {
-          entry.key: entry.value!,
-        });
+      try {
+        if (entry.value == null) {
+          await _storage.deleteProviderWebBillingVariable(
+            providerId,
+            entry.key,
+          );
+        } else {
+          await _storage.saveProviderWebBillingVariables(providerId, {
+            entry.key: entry.value!,
+          });
+        }
+      } catch (_) {
+        complete = false;
       }
     }
+    return complete;
   }
 
   List<SecretVariableDefinition> _definitions(Object? raw) => (raw as List)

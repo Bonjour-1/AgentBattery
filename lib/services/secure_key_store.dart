@@ -213,6 +213,11 @@ class ProviderKeyManager {
     return _read(_keyFor(providerId));
   }
 
+  Future<String?> readScopedWebBillingVariable({
+    required String providerId,
+    required String variableId,
+  }) => _read(_webBillingVariableKeyFor(providerId, variableId));
+
   Future<void> deleteWebBillingVariable({
     required String providerId,
     required String variableId,
