@@ -4,9 +4,20 @@ import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'app.dart';
+import 'services/agent_handoff_import_cli.dart';
+import 'services/app_storage_scope.dart';
 
-Future<void> main() async {
+Future<void> main(List<String> arguments) async {
   WidgetsFlutterBinding.ensureInitialized();
+  AppStorageScope.configureFromEntrypointArguments(arguments);
+  if (arguments.firstOrNull == 'import-agent-handoff') {
+    final importArguments = arguments
+        .skip(1)
+        .where((argument) => argument != '--agentbattery-test-variant')
+        .toList();
+    final result = await runAgentHandoffImporterCli(importArguments);
+    exit(result);
+  }
   if (Platform.isWindows) {
     await windowManager.ensureInitialized();
     const options = WindowOptions(

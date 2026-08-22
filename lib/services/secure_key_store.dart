@@ -213,6 +213,11 @@ class ProviderKeyManager {
     return _read(_keyFor(providerId));
   }
 
+  Future<void> deleteWebBillingVariable({
+    required String providerId,
+    required String variableId,
+  }) => _store.delete(_webBillingVariableKeyFor(providerId, variableId));
+
   /// Returns only a length-preserving display mask, never a stored secret.
   Future<String?> readProviderApiKeyMask(String providerId) async =>
       _mask(await _read(_keyFor(providerId)));
