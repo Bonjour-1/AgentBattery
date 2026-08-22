@@ -277,6 +277,28 @@ class AgentHandoffImporter {
       requestTemplates: requests,
       secretVariableDefinitions: definitions,
       metricRules: metrics,
+      credentialRefresh: _credentialRefresh(artifact['credential_refresh']),
+    );
+  }
+
+  CredentialRefreshConfig? _credentialRefresh(Object? raw) {
+    if (raw is! Map) return null;
+    final json = Map<String, Object?>.from(raw);
+    final request = Map<String, Object?>.from(json['request_template']! as Map);
+    return CredentialRefreshConfig(
+      triggerStatusCodes: (json['trigger_status_codes']! as List)
+          .cast<num>()
+          .map((value) => value.toInt())
+          .toList(),
+      requestTemplate: RequestTemplate(
+        id: request['id']! as String,
+        method: request['method']! as String,
+        urlTemplate: request['url_template']! as String,
+        queryTemplate: _stringMap(request['query_template']),
+        headersTemplate: _stringMap(request['headers_template']),
+        bodyTemplate: request['body_template']?.toString(),
+      ),
+      responseVariablePaths: _stringMap(json['response_variable_paths']),
     );
   }
 

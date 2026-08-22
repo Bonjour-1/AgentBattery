@@ -1,0 +1,104 @@
+{
+  "schema_version": "1.0",
+  "action": "configure_web_billing",
+  "provider": {
+    "id": "pucoding",
+    "name": "PuCoding",
+    "base_url": "https://pucoding.com/v1"
+  },
+  "request_templates": [
+    {
+      "id": "balance",
+      "method": "GET",
+      "url_template": "https://pucoding.com/api/v1/user/account",
+      "headers_template": {
+        "Authorization": "Bearer ${PUCODING_DASHBOARD_JWT}"
+      },
+      "query_template": {}
+    },
+    {
+      "id": "daily_usage",
+      "method": "GET",
+      "url_template": "https://pucoding.com/api/v1/user/usage/stats",
+      "headers_template": {
+        "Authorization": "Bearer ${PUCODING_DASHBOARD_JWT}"
+      },
+      "query_template": {
+        "start_time": "${CURRENT_DATE}",
+        "end_time": "${CURRENT_DATE}"
+      }
+    },
+    {
+      "id": "monthly_usage",
+      "method": "GET",
+      "url_template": "https://pucoding.com/api/v1/user/usage/stats",
+      "headers_template": {
+        "Authorization": "Bearer ${PUCODING_DASHBOARD_JWT}"
+      },
+      "query_template": {
+        "start_time": "${MONTH_START_DATE}",
+        "end_time": "${CURRENT_DATE}"
+      }
+    }
+  ],
+  "secret_variables": [
+    {
+      "name": "PUCODING_DASHBOARD_JWT",
+      "display_name": "PuCoding Dashboard JWT",
+      "type": "bearer_token",
+      "required": true
+    },
+    {
+      "name": "PUCODING_REFRESH_TOKEN",
+      "display_name": "PuCoding Refresh Token",
+      "type": "generic_body_value",
+      "required": true
+    }
+  ],
+  "credential_refresh": {
+    "trigger_status_codes": [401],
+    "request_template": {
+      "id": "refresh_credentials",
+      "method": "POST",
+      "url_template": "https://pucoding.com/api/v1/user/refresh-token",
+      "headers_template": {
+        "Content-Type": "application/json"
+      },
+      "query_template": {},
+      "body_template": "{\"refreshToken\":\"${PUCODING_REFRESH_TOKEN}\"}"
+    },
+    "response_variable_paths": {
+      "PUCODING_DASHBOARD_JWT": "$.data.token",
+      "PUCODING_REFRESH_TOKEN": "$.data.refresh_token"
+    }
+  },
+  "metric_rules": [
+    {
+      "id": "balance",
+      "kind": "balance",
+      "request_template_id": "balance",
+      "response_path": "$.data.balance",
+      "multiplier": 1,
+      "divisor": 1,
+      "unit": "元"
+    },
+    {
+      "id": "daily",
+      "kind": "daily",
+      "request_template_id": "daily_usage",
+      "response_path": "$.data.total_cost",
+      "multiplier": 1,
+      "divisor": 1,
+      "unit": "元"
+    },
+    {
+      "id": "monthly",
+      "kind": "monthly",
+      "request_template_id": "monthly_usage",
+      "response_path": "$.data.total_cost",
+      "multiplier": 1,
+      "divisor": 1,
+      "unit": "元"
+    }
+  ]
+}

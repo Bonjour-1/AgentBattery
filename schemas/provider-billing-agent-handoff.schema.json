@@ -32,6 +32,7 @@
       "minItems": 1,
       "items": { "$ref": "#/$defs/metricRule" }
     },
+    "credential_refresh": { "$ref": "#/$defs/credentialRefresh" },
     "credential_renewal": { "$ref": "#/$defs/credentialRenewal" }
   },
   "allOf": [
@@ -142,6 +143,33 @@
         { "required": ["response_path"] },
         { "required": ["processing_expression"] }
       ]
+    },
+    "credentialRefresh": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trigger_status_codes",
+        "request_template",
+        "response_variable_paths"
+      ],
+      "properties": {
+        "trigger_status_codes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": [401, 403] }
+        },
+        "request_template": { "$ref": "#/$defs/requestTemplate" },
+        "response_variable_paths": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": { "pattern": "^[A-Z][A-Z0-9_]*$" },
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^\\$\\."
+          }
+        }
+      }
     },
     "credentialRenewal": {
       "type": "object",

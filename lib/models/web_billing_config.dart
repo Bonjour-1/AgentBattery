@@ -255,6 +255,46 @@ class DisplayPolicy {
   }
 }
 
+class CredentialRefreshConfig {
+  CredentialRefreshConfig({
+    List<int> triggerStatusCodes = const [401],
+    required this.requestTemplate,
+    required Map<String, String> responseVariablePaths,
+  }) : triggerStatusCodes = List.unmodifiable(triggerStatusCodes),
+       responseVariablePaths = Map.unmodifiable(responseVariablePaths) {
+    if (this.triggerStatusCodes.isEmpty ||
+        this.triggerStatusCodes.any(
+          (status) => status != 401 && status != 403,
+        )) {
+      throw ArgumentError.value(triggerStatusCodes, 'triggerStatusCodes');
+    }
+    if (this.responseVariablePaths.isEmpty) {
+      throw ArgumentError.value(responseVariablePaths, 'responseVariablePaths');
+    }
+  }
+
+  final List<int> triggerStatusCodes;
+  final RequestTemplate requestTemplate;
+  final Map<String, String> responseVariablePaths;
+
+  Map<String, Object?> toJson() => {
+    'trigger_status_codes': triggerStatusCodes,
+    'request_template': requestTemplate.toJson(),
+    'response_variable_paths': responseVariablePaths,
+  };
+
+  factory CredentialRefreshConfig.fromJson(Object? raw) {
+    final json = _jsonMap(raw);
+    return CredentialRefreshConfig(
+      triggerStatusCodes: _jsonList(
+        json['trigger_status_codes'],
+      ).whereType<num>().map((value) => value.toInt()).toList(),
+      requestTemplate: RequestTemplate.fromJson(json['request_template']),
+      responseVariablePaths: _stringMap(json['response_variable_paths']),
+    );
+  }
+}
+
 class WebBillingConfig {
   const WebBillingConfig({
     required this.schemaVersion,
@@ -262,6 +302,7 @@ class WebBillingConfig {
     this.secretVariableDefinitions = const [],
     this.metricRules = const [],
     this.displayPolicy = const DisplayPolicy(),
+    this.credentialRefresh,
     this.source,
     this.migrationMetadata,
   });
@@ -271,6 +312,7 @@ class WebBillingConfig {
   final List<SecretVariableDefinition> secretVariableDefinitions;
   final List<MetricRule> metricRules;
   final DisplayPolicy displayPolicy;
+  final CredentialRefreshConfig? credentialRefresh;
   final String? source;
   final Map<String, Object?>? migrationMetadata;
 
@@ -284,6 +326,8 @@ class WebBillingConfig {
         .toList(),
     'metric_rules': metricRules.map((value) => value.toJson()).toList(),
     'display_policy': displayPolicy.toJson(),
+    if (credentialRefresh != null)
+      'credential_refresh': credentialRefresh!.toJson(),
     if (source != null) 'source': source,
     if (migrationMetadata != null) 'migration_metadata': migrationMetadata,
   };
@@ -304,6 +348,9 @@ class WebBillingConfig {
         json['metric_rules'],
       ).map(MetricRule.fromJson).toList(),
       displayPolicy: DisplayPolicy.fromJson(json['display_policy']),
+      credentialRefresh: json['credential_refresh'] == null
+          ? null
+          : CredentialRefreshConfig.fromJson(json['credential_refresh']),
       source: json['source']?.toString(),
       migrationMetadata: json['migration_metadata'] is Map
           ? _jsonMap(json['migration_metadata'])

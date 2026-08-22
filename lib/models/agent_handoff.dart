@@ -238,6 +238,11 @@ class AgentHandoffValidator {
     if (action == 'renew_credentials') {
       _validateRenewal(issues, artifact['credential_renewal'], secretNames);
     }
+    _validateCredentialRefresh(
+      issues,
+      artifact['credential_refresh'],
+      secretNames,
+    );
 
     return AgentHandoffValidationResult(List.unmodifiable(issues));
   }
@@ -327,6 +332,81 @@ class AgentHandoffValidator {
             'Request uses an undeclared variable placeholder.',
           );
         }
+      }
+    }
+  }
+
+  void _validateCredentialRefresh(
+    List<AgentHandoffValidationIssue> issues,
+    Object? raw,
+    Set<String> secretNames,
+  ) {
+    if (raw == null) return;
+    final refresh = _map(raw);
+    if (refresh == null) {
+      _add(
+        issues,
+        'credential_refresh',
+        r'$.credential_refresh',
+        'Credential refresh must be an object.',
+      );
+      return;
+    }
+    final statuses = _list(refresh['trigger_status_codes']);
+    if (statuses.isEmpty ||
+        statuses.any((status) => status != 401 && status != 403)) {
+      _add(
+        issues,
+        'refresh_status',
+        r'$.credential_refresh.trigger_status_codes',
+        'Credential refresh supports only HTTP 401 and 403.',
+      );
+    }
+    final request = _map(refresh['request_template']);
+    final method = request?['method'];
+    if (method != 'GET' && method != 'POST') {
+      _add(
+        issues,
+        'refresh_method',
+        r'$.credential_refresh.request_template.method',
+        'Credential refresh supports only GET and POST.',
+      );
+    }
+    final url = request?['url_template'];
+    if (url is! String || !_isHttpTemplate(url)) {
+      _add(
+        issues,
+        'refresh_url',
+        r'$.credential_refresh.request_template.url_template',
+        'Credential refresh URL must use HTTP or HTTPS.',
+      );
+    }
+    _validateRequestSecrets(
+      issues: issues,
+      request: request,
+      root: r'$.credential_refresh.request_template',
+      secretNames: secretNames,
+    );
+    final paths = _map(refresh['response_variable_paths']);
+    if (paths == null || paths.isEmpty) {
+      _add(
+        issues,
+        'refresh_outputs',
+        r'$.credential_refresh.response_variable_paths',
+        'Credential refresh must write at least one declared variable.',
+      );
+      return;
+    }
+    for (final entry in paths.entries) {
+      if (!secretNames.contains(entry.key) ||
+          entry.value is! String ||
+          !(entry.value as String).startsWith(r'$.')) {
+        _add(
+          issues,
+          'refresh_output',
+          r'$.credential_refresh.response_variable_paths',
+          'Credential refresh outputs must reference declared variables and JSON paths.',
+        );
       }
     }
   }
