@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "action": "configure_web_billing",
+  "provider": {
+    "id": "example-provider",
+    "name": "Example Provider",
+    "base_url": "https://api.example.com"
+  },
+  "request_templates": [
+    {
+      "id": "billing",
+      "method": "GET",
+      "url_template": "https://api.example.com/account/billing",
+      "headers_template": {
+        "Authorization": "Bearer ${BILLING_TOKEN}"
+      },
+      "query_template": {}
+    }
+  ],
+  "secret_variables": [
+    {
+      "name": "BILLING_TOKEN",
+      "display_name": "账单访问令牌",
+      "type": "bearer_token",
+      "required": true
+    }
+  ],
+  "metric_rules": [
+    {
+      "id": "balance",
+      "kind": "balance",
+      "request_template_id": "billing",
+      "response_path": "$.data.balance",
+      "multiplier": 1,
+      "divisor": 1,
+      "unit": "元"
+    }
+  ]
+}
