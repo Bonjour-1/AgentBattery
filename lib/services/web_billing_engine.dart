@@ -9,6 +9,8 @@ import 'web_billing_expression.dart';
 /// Reads a non-configured secret value without exposing it to logs or errors.
 typedef WebBillingSecretResolver =
     Future<String?> Function(String providerId, String variableName);
+typedef WebBillingSecretWriter =
+    Future<void> Function(String providerId, Map<String, String> values);
 
 typedef WebBillingTransport =
     Future<WebBillingHttpResponse> Function(RawHttpRequest request);
@@ -72,13 +74,17 @@ class WebBillingExecutionResult {
 class WebBillingEngine {
   WebBillingEngine({
     WebBillingSecretResolver? secretResolver,
+    WebBillingSecretWriter? secretWriter,
     WebBillingTransport? transport,
     this.timeout = const Duration(seconds: 12),
   }) : _secretResolver = secretResolver ?? _unconfiguredSecret,
+       _secretWriter = secretWriter ?? _unconfiguredWriter,
        _transport = transport ?? _unsupportedTransport;
 
   final WebBillingSecretResolver _secretResolver;
+  final WebBillingSecretWriter _secretWriter;
   final WebBillingTransport _transport;
+  final Map<String, Future<bool>> _refreshes = {};
   final Duration timeout;
 
   factory WebBillingEngine.withProviderKeyManager(
@@ -93,9 +99,18 @@ class WebBillingEngine {
           providerId: providerId,
           variableId: variableName,
         ),
+    secretWriter: (providerId, values) =>
+        keyManager.replaceWebBillingVariablesAtomically(
+          providerId: providerId,
+          values: values,
+        ),
   );
 
   static Future<String?> _unconfiguredSecret(String _, String _) async => null;
+  static Future<void> _unconfiguredWriter(
+    String _,
+    Map<String, String> values,
+  ) => Future.error(const WebBillingFailure('账单认证刷新未配置'));
   static Future<WebBillingHttpResponse> _unsupportedTransport(
     RawHttpRequest _,
   ) => Future.error(const WebBillingFailure('网络请求失败'));
@@ -153,9 +168,28 @@ class WebBillingEngine {
       return const WebBillingMetricResult.failed('账单请求配置不完整');
     }
     try {
-      final variables = await _variables(providerId, config, now);
-      final resolved = _buildRequest(request, variables);
-      final response = await _transport(resolved).timeout(timeout);
+      var variables = await _variables(providerId, config, now);
+      var resolved = _buildRequest(request, variables);
+      var response = await _transport(resolved).timeout(timeout);
+      final refresh = config.credentialRefresh;
+      if (refresh != null &&
+          refresh.triggerStatusCodes.contains(response.statusCode)) {
+        final latestVariables = await _variables(providerId, config, now);
+        final credentialsChanged = _refreshInputsChanged(
+          refresh,
+          variables,
+          latestVariables,
+        );
+        if (!credentialsChanged) {
+          final refreshed = await _refreshCredentials(providerId, config, now);
+          if (!refreshed) {
+            throw const WebBillingFailure('账单认证刷新失败');
+          }
+        }
+        variables = await _variables(providerId, config, now);
+        resolved = _buildRequest(request, variables);
+        response = await _transport(resolved).timeout(timeout);
+      }
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw WebBillingFailure('账单请求 HTTP ${response.statusCode}');
       }
@@ -183,6 +217,85 @@ class WebBillingEngine {
       return const WebBillingMetricResult.failed('账单请求超时');
     } catch (_) {
       return const WebBillingMetricResult.failed('账单响应格式异常');
+    }
+  }
+
+  bool _refreshInputsChanged(
+    CredentialRefreshConfig refresh,
+    Map<String, String> before,
+    Map<String, String> after,
+  ) {
+    final names = <String>{
+      ...refresh.responseVariablePaths.keys,
+      ..._templateVariableNames(refresh.requestTemplate),
+    };
+    return names.any((name) => before[name] != after[name]);
+  }
+
+  Set<String> _templateVariableNames(RequestTemplate template) {
+    final names = <String>{};
+    final pattern = RegExp(r'\$\{([A-Za-z_][A-Za-z0-9_]*)\}');
+    final values = <String>[
+      template.urlTemplate,
+      ...template.queryTemplate.keys,
+      ...template.queryTemplate.values,
+      ...template.headersTemplate.keys,
+      ...template.headersTemplate.values,
+      if (template.bodyTemplate != null) template.bodyTemplate!,
+    ];
+    for (final value in values) {
+      names.addAll(pattern.allMatches(value).map((match) => match.group(1)!));
+    }
+    return names;
+  }
+
+  Future<bool> _refreshCredentials(
+    String providerId,
+    WebBillingConfig config,
+    DateTime now,
+  ) {
+    final existing = _refreshes[providerId];
+    if (existing != null) return existing;
+    final future = _performCredentialRefresh(providerId, config, now);
+    _refreshes[providerId] = future;
+    return future.whenComplete(() {
+      if (identical(_refreshes[providerId], future)) {
+        _refreshes.remove(providerId);
+      }
+    });
+  }
+
+  Future<bool> _performCredentialRefresh(
+    String providerId,
+    WebBillingConfig config,
+    DateTime now,
+  ) async {
+    final refresh = config.credentialRefresh!;
+    try {
+      final declaredNames = config.secretVariableDefinitions
+          .map((definition) => definition.name)
+          .toSet();
+      if (!declaredNames.containsAll(refresh.responseVariablePaths.keys)) {
+        return false;
+      }
+      final variables = await _variables(providerId, config, now);
+      final request = _buildRequest(refresh.requestTemplate, variables);
+      final response = await _transport(request).timeout(timeout);
+      if (response.statusCode < 200 || response.statusCode >= 300) return false;
+      final decoded = jsonDecode(response.body);
+      if (!_matchesSuccessRule(decoded, refresh.requestTemplate.successRule)) {
+        return false;
+      }
+      final values = <String, String>{};
+      for (final entry in refresh.responseVariablePaths.entries) {
+        final value = _extractScalar(decoded, entry.value);
+        if (value is! String || value.isEmpty) return false;
+        values[entry.key] = value;
+      }
+      await _secretWriter(providerId, values);
+      return true;
+    } catch (_) {
+      return false;
     }
   }
 

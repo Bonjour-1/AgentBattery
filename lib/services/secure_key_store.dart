@@ -200,6 +200,52 @@ class ProviderKeyManager {
     }
   }
 
+  Future<void> replaceWebBillingVariablesAtomically({
+    required String providerId,
+    required Map<String, String> values,
+  }) async {
+    final originals = <String, String?>{};
+    for (final name in values.keys) {
+      originals[name] = await readScopedWebBillingVariable(
+        providerId: providerId,
+        variableId: name,
+      );
+    }
+    try {
+      for (final entry in values.entries) {
+        await saveWebBillingVariable(
+          providerId: providerId,
+          variableId: entry.key,
+          submittedValue: entry.value,
+        );
+      }
+    } catch (_) {
+      var rollbackComplete = true;
+      for (final entry in originals.entries) {
+        try {
+          if (entry.value == null) {
+            await deleteWebBillingVariable(
+              providerId: providerId,
+              variableId: entry.key,
+            );
+          } else if (!await _writeAndVerify(
+            _webBillingVariableKeyFor(providerId, entry.key),
+            entry.value!,
+          )) {
+            rollbackComplete = false;
+          }
+        } catch (_) {
+          rollbackComplete = false;
+        }
+      }
+      throw StateError(
+        rollbackComplete
+            ? 'Unable to atomically replace web billing credentials.'
+            : 'Unable to replace or roll back web billing credentials.',
+      );
+    }
+  }
+
   /// Reads a generic web-billing secret by the variable identifier used as its
   /// secure-storage key. Callers must not log the returned value.
   Future<String?> readWebBillingVariable({
@@ -212,6 +258,16 @@ class ProviderKeyManager {
     if (value?.isNotEmpty == true || variableId != 'API_KEY') return value;
     return _read(_keyFor(providerId));
   }
+
+  Future<String?> readScopedWebBillingVariable({
+    required String providerId,
+    required String variableId,
+  }) => _store.read(_webBillingVariableKeyFor(providerId, variableId));
+
+  Future<void> deleteWebBillingVariable({
+    required String providerId,
+    required String variableId,
+  }) => _store.delete(_webBillingVariableKeyFor(providerId, variableId));
 
   /// Returns only a length-preserving display mask, never a stored secret.
   Future<String?> readProviderApiKeyMask(String providerId) async =>

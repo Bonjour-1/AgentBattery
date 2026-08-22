@@ -37,6 +37,12 @@ void RestoreExistingWindow() {
 
 int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
                       _In_ wchar_t *command_line, _In_ int show_command) {
+  std::vector<std::string> command_line_arguments =
+      GetCommandLineArguments();
+  const bool is_agent_handoff_import =
+      !command_line_arguments.empty() &&
+      command_line_arguments.front() == "import-agent-handoff";
+
   HANDLE single_instance_mutex =
       CreateMutexW(nullptr, FALSE, kSingleInstanceMutexName);
   const DWORD mutex_error = GetLastError();
@@ -44,6 +50,10 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
     return EXIT_FAILURE;
   }
   if (mutex_error == ERROR_ALREADY_EXISTS) {
+    if (is_agent_handoff_import) {
+      CloseHandle(single_instance_mutex);
+      return 3;
+    }
     RestoreExistingWindow();
     CloseHandle(single_instance_mutex);
     return EXIT_SUCCESS;
@@ -60,9 +70,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 
   flutter::DartProject project(L"data");
-
-  std::vector<std::string> command_line_arguments =
-      GetCommandLineArguments();
 
   project.set_dart_entrypoint_arguments(std::move(command_line_arguments));
 

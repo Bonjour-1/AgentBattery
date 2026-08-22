@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Bonjour-1/AgentBattery/schemas/provider-billing-agent-handoff.schema.json",
+  "title": "AgentBattery provider billing agent handoff",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "action",
+    "provider",
+    "request_templates",
+    "secret_variables",
+    "metric_rules"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "action": {
+      "enum": ["configure_web_billing", "renew_credentials"]
+    },
+    "provider": { "$ref": "#/$defs/provider" },
+    "request_templates": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/requestTemplate" }
+    },
+    "secret_variables": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/secretVariable" }
+    },
+    "metric_rules": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/metricRule" }
+    },
+    "credential_refresh": { "$ref": "#/$defs/credentialRefresh" },
+    "credential_renewal": { "$ref": "#/$defs/credentialRenewal" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "action": { "const": "renew_credentials" } },
+        "required": ["action"]
+      },
+      "then": { "required": ["credential_renewal"] }
+    }
+  ],
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]*$"
+    },
+    "provider": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "name": { "type": "string", "minLength": 1 },
+        "base_url": {
+          "type": "string",
+          "pattern": "^https?://"
+        }
+      }
+    },
+    "requestTemplate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "method", "url_template"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "method": { "enum": ["GET", "POST"] },
+        "url_template": {
+          "type": "string",
+          "pattern": "^https?://"
+        },
+        "headers_template": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "query_template": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "body_template": { "type": "string" }
+      }
+    },
+    "secretVariable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "display_name", "type", "required"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]*$"
+        },
+        "display_name": { "type": "string", "minLength": 1 },
+        "type": {
+          "enum": [
+            "bearer_token",
+            "cookie_jar",
+            "cookie_header",
+            "subject_id",
+            "generic_header_value",
+            "generic_body_value"
+          ]
+        },
+        "required": { "type": "boolean" }
+      }
+    },
+    "metricRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "request_template_id",
+        "multiplier",
+        "divisor"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "kind": { "enum": ["balance", "daily", "monthly"] },
+        "request_template_id": { "$ref": "#/$defs/identifier" },
+        "response_path": {
+          "type": "string",
+          "pattern": "^\\$\\."
+        },
+        "processing_expression": {
+          "type": "string",
+          "minLength": 1
+        },
+        "multiplier": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "divisor": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "unit": { "type": ["string", "null"] }
+      },
+      "anyOf": [
+        { "required": ["response_path"] },
+        { "required": ["processing_expression"] }
+      ]
+    },
+    "credentialRefresh": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trigger_status_codes",
+        "request_template",
+        "response_variable_paths"
+      ],
+      "properties": {
+        "trigger_status_codes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": [401, 403] }
+        },
+        "request_template": { "$ref": "#/$defs/requestTemplate" },
+        "response_variable_paths": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": { "pattern": "^[A-Z][A-Z0-9_]*$" },
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^\\$\\."
+          }
+        }
+      }
+    },
+    "credentialRenewal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required_variables",
+        "documentation",
+        "preserve_billing_rules"
+      ],
+      "properties": {
+        "required_variables": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]*$"
+          }
+        },
+        "documentation": { "type": "string", "minLength": 1 },
+        "preserve_billing_rules": { "const": true }
+      }
+    }
+  }
+}

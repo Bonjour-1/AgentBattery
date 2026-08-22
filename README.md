@@ -20,6 +20,7 @@ AgentBattery 是一款面向 Windows 的多服务商 AI 账户看板，用于集
 开始使用前，请阅读以下说明：
 
 - [通用网页账单配置说明](docs/通用网页账单配置说明.md)：余额、今日/本月用量、cURL 导入、安全变量与常见问题。
+- [给 Agent 的网页账单接入说明](AGENT_SETUP.md)：让用户自己的 Agent 调查接口、生成无 Secret 的交接文件并处理凭据过期。
 
 使用网页账单时，务必先阅读配置说明。不要在聊天、截图、Issue 或普通配置字段中泄露 API Key、Cookie、Authorization / Bearer Token 等敏感信息。
 

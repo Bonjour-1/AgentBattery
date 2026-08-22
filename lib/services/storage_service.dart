@@ -144,6 +144,30 @@ class StorageService {
     }
   }
 
+  Future<String?> readProviderWebBillingVariable(
+    String providerId,
+    String variableId,
+  ) => _keys.readWebBillingVariable(
+    providerId: providerId,
+    variableId: variableId,
+  );
+
+  Future<String?> readScopedProviderWebBillingVariable(
+    String providerId,
+    String variableId,
+  ) => _keys.readScopedWebBillingVariable(
+    providerId: providerId,
+    variableId: variableId,
+  );
+
+  Future<void> deleteProviderWebBillingVariable(
+    String providerId,
+    String variableId,
+  ) => _keys.deleteWebBillingVariable(
+    providerId: providerId,
+    variableId: variableId,
+  );
+
   Future<String?> readProviderApiKeyMask(String providerId) =>
       _keys.readProviderApiKeyMask(providerId);
 
