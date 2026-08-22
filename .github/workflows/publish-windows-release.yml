@@ -69,6 +69,30 @@ jobs:
           }
 
           Copy-Item "docs/通用网页账单配置说明.md" -Destination $releaseDirectory -Force
+          Copy-Item "AGENT_SETUP.md" -Destination $releaseDirectory -Force
+
+          $schemaDirectory = Join-Path $releaseDirectory "schemas"
+          $examplesDirectory = Join-Path $releaseDirectory "examples"
+          New-Item -ItemType Directory -Force -Path $schemaDirectory, $examplesDirectory | Out-Null
+          Copy-Item "schemas/provider-billing-agent-handoff.schema.json" -Destination $schemaDirectory -Force
+          Copy-Item "examples/agent-handoff.example.json" -Destination $examplesDirectory -Force
+          Copy-Item "pucoding-agent-handoff.json" -Destination (Join-Path $examplesDirectory "pucoding-agent-handoff.json") -Force
+
+          $requiredPackageFiles = @(
+            "AgentBattery.exe",
+            "通用网页账单配置说明.md",
+            "AGENT_SETUP.md",
+            "schemas/provider-billing-agent-handoff.schema.json",
+            "examples/agent-handoff.example.json",
+            "examples/pucoding-agent-handoff.json"
+          )
+          foreach ($relativePath in $requiredPackageFiles) {
+            $packagedPath = Join-Path $releaseDirectory $relativePath
+            if (-not (Test-Path $packagedPath -PathType Leaf)) {
+              throw "Required package file is missing: $relativePath"
+            }
+          }
+
           Compress-Archive -Path "$releaseDirectory/*" -DestinationPath $archive -Force
           "ARCHIVE=$archive" >> $env:GITHUB_ENV
 
