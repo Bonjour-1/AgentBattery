@@ -1,7 +1,7 @@
 # AgentBattery
 
 <p align="center">
-  <img src="app-home.png" alt="AgentBattery 首页" width="860">
+  <img src="README-preview.jpg" alt="AgentBattery 首页" width="860">
 </p>
 
 <p align="center">
@@ -54,15 +54,17 @@ examples/pucoding-agent-handoff.json
 
 如果供应商只能从网页控制台读取余额或用量，请先阅读 [通用网页账单配置说明](docs/通用网页账单配置说明.md)。
 
-## 让 Agent 帮你接入供应商
+## 推荐：让 Agent 直接导入供应商
 
-[AGENT_SETUP.md](AGENT_SETUP.md) 是给本机 Agent 阅读的接入说明。Agent 可以调查供应商接口、生成不含 Secret 的 handoff，并在确认 AgentBattery 已关闭后直接写入配置和 Windows 安全存储。
+对于网页账单或需要调查接口的供应商，推荐优先使用本机 Agent 直接导入，而不是手工复制 URL、请求头和 JSON 路径。这样可以减少配置错误，也能把 Cookie、Token 等凭据留在本机安全输入与 Windows 安全存储中。
+
+[AGENT_SETUP.md](AGENT_SETUP.md) 是给本机 Agent 阅读的完整接入说明。把这份文件、供应商名称和网站地址交给 Agent；需要凭据时，按 AgentBattery 的隐藏输入提示在本机提供。Agent 会调查接口、生成不含 Secret 的 handoff，并在确认 AgentBattery 已关闭后直接写入配置和安全变量。
 
 ```powershell
 .\AgentBattery.exe import-agent-handoff path\to\handoff.json
 ```
 
-凭据通过隐藏输入提供，不应出现在 handoff JSON、命令参数、聊天记录或普通日志中。
+凭据通过隐藏输入提供，不应出现在 handoff JSON、命令参数、聊天记录或普通日志中。请只让你信任、且在本机运行的 Agent 处理该流程。
 
 如果供应商提供经过验证的刷新接口，handoff 还可以描述通用认证恢复流程。AgentBattery 会在认证失败后刷新凭据、原子更新安全变量，并只重试原请求一次；多个并发失败会共享同一次刷新。
 
