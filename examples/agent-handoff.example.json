@@ -4,7 +4,8 @@
   "provider": {
     "id": "example-provider",
     "name": "Example Provider",
-    "base_url": "https://api.example.com"
+    "base_url": "https://api.example.com",
+    "recharge_url": "https://example.com/recharge"
   },
   "request_templates": [
     {

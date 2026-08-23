@@ -122,7 +122,8 @@ class AgentHandoffImporter {
       enabled: existing?.enabled ?? true,
       baseUrl: provider['base_url']?.toString() ?? existing?.baseUrl ?? '',
       defaultModel: existing?.defaultModel ?? '',
-      rechargeUrl: existing?.rechargeUrl ?? '',
+      rechargeUrl:
+          provider['recharge_url']?.toString() ?? existing?.rechargeUrl ?? '',
       lowBalanceThreshold: existing?.lowBalanceThreshold,
       webBillingConfig: webBilling,
     );

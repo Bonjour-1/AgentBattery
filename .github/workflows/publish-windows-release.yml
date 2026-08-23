@@ -77,6 +77,7 @@ jobs:
           Copy-Item "schemas/provider-billing-agent-handoff.schema.json" -Destination $schemaDirectory -Force
           Copy-Item "examples/agent-handoff.example.json" -Destination $examplesDirectory -Force
           Copy-Item "pucoding-agent-handoff.json" -Destination (Join-Path $examplesDirectory "pucoding-agent-handoff.json") -Force
+          Copy-Item "tokensvip-agent-handoff.json" -Destination (Join-Path $examplesDirectory "tokensvip-agent-handoff.json") -Force
 
           $requiredPackageFiles = @(
             "AgentBattery.exe",
@@ -84,7 +85,8 @@ jobs:
             "AGENT_SETUP.md",
             "schemas/provider-billing-agent-handoff.schema.json",
             "examples/agent-handoff.example.json",
-            "examples/pucoding-agent-handoff.json"
+            "examples/pucoding-agent-handoff.json",
+            "examples/tokensvip-agent-handoff.json"
           )
           foreach ($relativePath in $requiredPackageFiles) {
             $packagedPath = Join-Path $releaseDirectory $relativePath

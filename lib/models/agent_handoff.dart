@@ -79,6 +79,16 @@ class AgentHandoffValidator {
         'Provider base URL must use HTTP or HTTPS.',
       );
     }
+    final rechargeUrl = provider?['recharge_url'];
+    if (rechargeUrl != null &&
+        (rechargeUrl is! String || !_isHttpTemplate(rechargeUrl))) {
+      _add(
+        issues,
+        'recharge_url',
+        r'$.provider.recharge_url',
+        'Recharge URL must use HTTP or HTTPS.',
+      );
+    }
 
     final secretNames = <String>{};
     final secrets = _list(artifact['secret_variables']);

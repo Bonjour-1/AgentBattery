@@ -59,6 +59,10 @@
         "base_url": {
           "type": "string",
           "pattern": "^https?://"
+        },
+        "recharge_url": {
+          "type": "string",
+          "pattern": "^https?://"
         }
       }
     },
