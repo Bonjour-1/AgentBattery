@@ -759,10 +759,14 @@ class _Header extends StatelessWidget {
                 borderRadius: BorderRadius.circular(tokens.controlRadius),
                 border: Border.all(color: tokens.outline),
               ),
-              child: Icon(
-                Icons.battery_charging_full_rounded,
-                color: tokens.primary,
-                size: 28,
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Image.asset(
+                  'assets/app_icon.png',
+                  width: 32,
+                  height: 32,
+                  fit: BoxFit.contain,
+                ),
               ),
             ),
             SizedBox(
