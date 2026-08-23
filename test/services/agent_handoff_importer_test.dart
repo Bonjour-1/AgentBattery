@@ -116,6 +116,22 @@ void main() {
     },
   );
 
+  test('imports the public recharge URL from provider metadata', () async {
+    final raw = artifact();
+    final provider = raw['provider']! as Map<String, Object?>;
+    provider['recharge_url'] = 'https://example.test/recharge';
+    final storage = StorageService(keyStore: MemorySecrets());
+
+    await AgentHandoffImporter(
+      storage,
+    ).import(raw, secretValues: const {'TOKEN': 'sentinel-secret'});
+
+    expect(
+      (await storage.load()).providerConfigs.single.rechargeUrl,
+      'https://example.test/recharge',
+    );
+  });
+
   test(
     'rejects missing and undeclared secret values without echoing values',
     () async {

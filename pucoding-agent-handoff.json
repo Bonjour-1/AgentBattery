@@ -4,7 +4,8 @@
   "provider": {
     "id": "pucoding",
     "name": "PuCoding",
-    "base_url": "https://pucoding.com/v1"
+    "base_url": "https://pucoding.com/v1",
+    "recharge_url": "https://pucoding.com/pricing"
   },
   "request_templates": [
     {

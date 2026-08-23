@@ -1,0 +1,91 @@
+{
+  "schema_version": "1.0",
+  "action": "configure_web_billing",
+  "provider": {
+    "id": "tokensvip",
+    "name": "TokeNova",
+    "base_url": "https://tokensvip.top",
+    "recharge_url": "https://tokensvip.top/wallet"
+  },
+  "request_templates": [
+    {
+      "id": "account",
+      "method": "GET",
+      "url_template": "https://tokensvip.top/api/user/self",
+      "headers_template": {
+        "New-Api-User": "${TOKENSVIP_USER_ID}",
+        "Cookie": "${TOKENSVIP_COOKIE}"
+      },
+      "query_template": {}
+    },
+    {
+      "id": "daily_usage",
+      "method": "GET",
+      "url_template": "https://tokensvip.top/api/data/self",
+      "headers_template": {
+        "New-Api-User": "${TOKENSVIP_USER_ID}",
+        "Cookie": "${TOKENSVIP_COOKIE}"
+      },
+      "query_template": {
+        "start_timestamp": "${DAY_START_UNIX}",
+        "end_timestamp": "${DAY_END_UNIX}"
+      }
+    },
+    {
+      "id": "monthly_usage",
+      "method": "GET",
+      "url_template": "https://tokensvip.top/api/data/self",
+      "headers_template": {
+        "New-Api-User": "${TOKENSVIP_USER_ID}",
+        "Cookie": "${TOKENSVIP_COOKIE}"
+      },
+      "query_template": {
+        "start_timestamp": "${MONTH_START_UNIX}",
+        "end_timestamp": "${CURRENT_UNIX}"
+      }
+    }
+  ],
+  "secret_variables": [
+    {
+      "name": "TOKENSVIP_USER_ID",
+      "display_name": "TokeNova 用户标识",
+      "type": "subject_id",
+      "required": true
+    },
+    {
+      "name": "TOKENSVIP_COOKIE",
+      "display_name": "TokeNova 网页会话 Cookie",
+      "type": "cookie_header",
+      "required": true
+    }
+  ],
+  "metric_rules": [
+    {
+      "id": "balance",
+      "kind": "balance",
+      "request_template_id": "account",
+      "response_path": "$.data.quota",
+      "multiplier": 1,
+      "divisor": 500000,
+      "unit": "¤"
+    },
+    {
+      "id": "daily",
+      "kind": "daily",
+      "request_template_id": "daily_usage",
+      "processing_expression": "sum(data[*].quota) / 500000",
+      "multiplier": 1,
+      "divisor": 1,
+      "unit": "¤"
+    },
+    {
+      "id": "monthly",
+      "kind": "monthly",
+      "request_template_id": "monthly_usage",
+      "processing_expression": "sum(data[*].quota) / 500000",
+      "multiplier": 1,
+      "divisor": 1,
+      "unit": "¤"
+    }
+  ]
+}

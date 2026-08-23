@@ -89,6 +89,19 @@ Agent 调查完认证流程后，必须明确告诉用户“能否做成自动�
 
 文件中只写请求规则、解析规则和 Secret 的名称/类型，不写 Secret 值。敏感位置必须使用已声明的 `${VARIABLE_NAME}`。
 
+同时调查供应商公开的充值或余额管理页面，并在 `provider.recharge_url` 中填写完整的 HTTP/HTTPS 地址。优先填写用户登录后可直接充值或管理余额的页面；如果供应商没有独立充值页，可填写公开的套餐购买页。不要猜测地址，无法确认时省略该字段并在最终报告中说明。
+
+```json
+{
+  "provider": {
+    "id": "example-provider",
+    "name": "Example Provider",
+    "base_url": "https://api.example.com",
+    "recharge_url": "https://example.com/recharge"
+  }
+}
+```
+
 如果供应商提供了公开且已验证的令牌刷新接口，可以增加 `credential_refresh`：
 
 - `trigger_status_codes` 只允许 `401`、`403`；
@@ -124,9 +137,10 @@ dart run tools/validate_agent_handoff.dart path\to\handoff.json
 1. 再次拒绝与正在运行的 AgentBattery 并发写入；
 2. 保留其他供应商、主题、用量历史及应用设置；
 3. 把请求和解析规则写入应用状态；
-4. 通过 AgentBattery 自己的安全存储接口保存 Secret；
-5. 验证安全写入，失败时恢复本次写入前的 Secret；
-6. 只输出供应商 ID、已配置指标和脱敏状态。
+4. 将 `provider.recharge_url` 写入供应商的“前往充值”快捷入口；
+5. 通过 AgentBattery 自己的安全存储接口保存 Secret；
+6. 验证安全写入，失败时恢复本次写入前的 Secret；
+7. 只输出供应商 ID、已配置指标和脱敏状态。
 
 不要通过 `--token`、`--cookie` 等命令参数传递凭据，也不要直接修改 SharedPreferences 或 Windows 凭据文件。
 
@@ -175,6 +189,7 @@ dart run tools/validate_agent_handoff.dart path\to\handoff.json
 供应商：<名称>
 数据源：公开 API / 官方 API / 网页 JSON
 已配置指标：余额 / 今日用量 / 本月用量
+充值地址：已配置 / 未配置（说明原因）
 认证方式：长期 API Key / 网页 Bearer / 网页 Cookie
 自动刷新账单：可以 / 不可以 / 暂时无法确认（说明原因）
 认证凭据自动续期：支持 / 不支持 / 暂时无法确认（说明原因）

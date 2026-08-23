@@ -49,6 +49,19 @@ void main() {
     expect(result.issues, isEmpty);
   });
 
+  test('accepts an HTTP recharge URL and rejects non-HTTP values', () {
+    final artifact = validArtifact();
+    final provider = artifact['provider']! as Map<String, Object?>;
+    provider['recharge_url'] = 'https://example.test/recharge';
+    expect(validate(artifact).isValid, isTrue);
+
+    provider['recharge_url'] = 'javascript:alert(1)';
+    expect(
+      validate(artifact).issues.map((issue) => issue.code),
+      contains('recharge_url'),
+    );
+  });
+
   test('rejects unsupported versions, actions, methods, and non-HTTP URLs', () {
     final artifact = validArtifact();
     artifact['schema_version'] = '2.0';
